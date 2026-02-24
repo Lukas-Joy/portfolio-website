@@ -1,18 +1,14 @@
-# Lukas Joy — Retro Desktop 3D Hub
-
-Interactive 3D portfolio. Push to GitHub Pages root — no build step needed.
-
 ## File Structure
 
 ```
-index.html          Entry point (all CSS inline)
-data.js             ← ALL CONTENT LIVES HERE
+index.html          Entry point
+data.js             ALL CONTENT LIVES HERE
 js/
-  scene.js          Three.js scene (monitor, starfield, 3D icons)
-  desktop.js        Desktop icons, taskbar, clock (GMT+13)
-  windows.js        Popup windows (about / contact / cv)
-  project-app.js    project.exe app + canvas/gif previews
-  main.js           Boot sequence + bootstrap
+  scene.js          Three.js scene (monitor, 3D icons)
+  desktop.js        Desktop icons, taskbar, clock
+  windows.js        Popup windows (about, contact, cv)
+  project-app.js    project.exe app
+  main.js           Boot sequence
 gif/                Looping preview GIFs for project.exe
 img/                Textures for 3D icons + desktop icon images
 mesh/               Custom 3D meshes for project icons (.glb)
@@ -63,6 +59,3 @@ Open `data.js` — everything is in there: about, contact, cv, projects, boot se
 ```
 Then add `gif/mygame.gif`, `img/mygame.png`, and optionally `mesh/mygame.glb`.
 Icons auto-position in a grid either side of the monitor.
-
-## GitHub Pages
-Settings → Pages → Deploy from branch → main → / (root)
