@@ -1,77 +1,68 @@
 # Lukas Joy — Retro Desktop 3D Hub
 
-An interactive 3D portfolio site with a PSX aesthetic. Built with Three.js + vanilla JS/CSS.
+Interactive 3D portfolio. Push to GitHub Pages root — no build step needed.
 
 ## File Structure
 
 ```
-index.html              Main entry point
-data.js                 ← EDIT THIS FILE to update all site content
-css/
-  style.css             All styles
+index.html          Entry point (all CSS inline)
+data.js             ← ALL CONTENT LIVES HERE
 js/
-  scene.js              Three.js 3D scene, monitor mesh, render loop
-  desktop.js            Desktop icons, drag behaviour, taskbar
-  windows.js            Popup windows (about, contact, cv)
-  project-app.js        project.exe application + canvas previews
-  main.js               Boot sequence & initialisation
+  scene.js          Three.js scene (monitor, starfield, 3D icons)
+  desktop.js        Desktop icons, taskbar, clock (GMT+13)
+  windows.js        Popup windows (about / contact / cv)
+  project-app.js    project.exe app + canvas/gif previews
+  main.js           Boot sequence + bootstrap
+gif/                Looping preview GIFs for project.exe
+img/                Textures for 3D icons + desktop icon images
+mesh/               Custom 3D meshes for project icons (.glb)
 ```
+
+## Asset Folders
+
+### `gif/`  — preview animations inside project.exe
+Name by project key: `gif/game1.gif`, `gif/game2.gif`, etc.
+Falls back to canvas animation if not found.
+
+### `img/`  — textures and icon images
+```
+img/game1.png           texture on spinning 3D card for "game1"
+img/icon-projects.png   desktop icon for project.exe
+img/icon-about.png      desktop icon for about.html
+img/icon-contact.png    desktop icon for contact.txt
+img/icon-cv.png         desktop icon for CV.pdf
+img/No_Texture.webp     REQUIRED fallback (checkerboard or ? image)
+```
+
+### `mesh/`  — custom 3D meshes  (.glb format)
+```
+mesh/game1.glb          replaces default spinning box for "game1"
+```
+Falls back to low-poly box if not found.
 
 ## Editing Content
 
-**All site text lives in `data.js`.** Open it and edit:
-
-- `identity` — your name and tagline
-- `about.paragraphs` — about section text
-- `about.skills` — skill tags
-- `contact.email` — your email
-- `contact.links` — social/portfolio links (add or remove as needed)
-- `cv.experience` — work history entries
-- `cv.education` — education entries
-- `cv.awards` — award list
-- `cv.downloadUrl` — link to your actual CV PDF
-- `projects` — each project entry (see below)
-- `bootLines` — text shown during the startup sequence
+Open `data.js` — everything is in there: about, contact, cv, projects, boot sequence.
 
 ### Adding a Project
-
-Add an entry to the `projects` array in `data.js`:
-
 ```js
 {
-  key: "myproject",           // unique identifier (no spaces)
-  title: "MY PROJECT",        // displayed title
-  subtitle: "myproject.exe",  // small subtitle
-  icon: "🎮",                 // emoji shown as void icon
-  year: "2024",
-  type: "GAME",               // or "DESIGN", etc.
-  tags: ["TAG1", "TAG2"],
-  voidPos: [-4.5, 1.2, 0],   // [x, y, z] position in 3D void
-  previewType: "platformer",  // see preview types below
-  shortDesc: "Short description shown in catalogue.",
-  fullDesc: [
-    "Paragraph one of full description.",
-    "Paragraph two.",
-  ],
-  playUrl: "https://...",
-  platform: "Browser / Windows",
-  duration: "~30 min",
+  key: "mygame",        // unique, no spaces — drives all asset filenames
+  title: "MY GAME",
+  icon: "🎮",
+  year: "2025",
+  type: "GAME",
+  tags: ["UNITY","PSX"],
+  previewType: "platformer",  // "platformer"|"horror"|"corridor"|"brand"
+  shortDesc: "One-liner.",
+  fullDesc: ["Para 1.", "Para 2."],
+  playUrl: "https://itch.io/...",
+  platform: "Browser",
+  duration: "~20 min",
 }
 ```
+Then add `gif/mygame.gif`, `img/mygame.png`, and optionally `mesh/mygame.glb`.
+Icons auto-position in a grid either side of the monitor.
 
-**Preview types** (canvas-animated):
-- `"platformer"` — side-scrolling PSX platformer look
-- `"horror"` — dark forest creature horror
-- `"corridor"` — infinite brutalist corridor
-- `"brand"` — minimal rotating brand mark
-
-To add a custom preview, add a new `renderMyPreview(ctx, W, H, frame)` function in `js/project-app.js` and reference it in the `renderers` map.
-
-## Deploying to GitHub Pages
-
-1. Push all files to a GitHub repo
-2. Go to **Settings → Pages**
-3. Set source to **Deploy from a branch → main → / (root)**
-4. Your site will be live at `https://yourusername.github.io/repo-name`
-
-No build step required. All dependencies load from CDN.
+## GitHub Pages
+Settings → Pages → Deploy from branch → main → / (root)

@@ -1,166 +1,207 @@
 /**
  * ============================================================
- * SITE DATA — data.js (Placeholder Text)
+ *	data.js  —  Personalized site content for Lukas Joy
  * ============================================================
+ *
+ *	Asset paths (optional — falls back to img/No_Texture.webp):
+ *	  gif/{key}.gif        looping preview in project.exe
+ *	  img/{key}.png        texture on the 3D floating icon
+ *	  mesh/{key}.glb       custom 3D mesh for the floating icon
+ *	  img/icon-projects.png  |  img/icon-about.png
+ *	  img/icon-contact.png   |  img/icon-cv.png
+ *	     desktop icon images (fallback: emoji)
  */
 
 const SITE_DATA = {
 
-  // ── IDENTITY ──────────────────────────────────────────────
-  identity: {
-    name: "Lorem Ipsum",
-    tagline: "Designer · Game Developer",
-    systemName: "LJSYS v2.0",
-  },
+	identity: {
+		name: "Lukas Joy",
+		tagline: "Designer | Game Developer",
+		systemName: "LJSYS v2.0",
+	},
 
-  // ── ABOUT ─────────────────────────────────────────────────
-  about: {
-    title: "about.html",
-    paragraphs: [
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-      "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-      "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-    ],
-    skills: ["LOREM", "IPSUM", "DOLOR", "SIT AMET", "CONSECTETUR", "ADIPISCING"],
-  },
+	about: {
+		paragraphs: [
+			"Hi. I'm Lukas Joy, a designer and game developer exploring digital space, 3D environments, and authored systems.",
+			"My work blends PSX aesthetics, low-poly 3D, and interactive experiences that play with perception and interface.",
+			"I enjoy building experimental games, retro-inspired interfaces, and interactive identities that push design.",
+		],
+		skills: ["GAME DESIGN", "3D", "UI/UX", "PSX AESTHETIC", "GODOT", "UNREAL"],
+	},
 
-  // ── CONTACT / LINKS ───────────────────────────────────────
-  contact: {
-    title: "contact.txt",
-    email: "lorem@ipsum.com",
-    links: [
-      { label: "itch.io", icon: "🎮", url: "https://example.com", display: "example.com" },
-      { label: "YouTube", icon: "▶", url: "https://youtube.com", display: "@example" },
-      { label: "GitHub", icon: "⌥", url: "https://github.com/example", display: "github.com/example" }
-    ],
-    note: "Response time: lorem ipsum.",
-  },
+	contact: {
+		email: "lukasjoygames@gmail.com",
+		links: [
+			{ label: "itch.io", icon: "🎮", url: "https://lukasjoy.itch.io", display: "lukasjoy.itch.io" },
+			{ label: "YouTube", icon: "▶", url: "https://www.youtube.com/@LukasJoyDev", display: "@lukasjoy" },
+			{ label: "GitHub", icon: "⌥", url: "https://github.com/Lukas-Joy", display: "github.com/lukasjoy" },
+		],
+		note: "Response time: eventually. Timezone: GMT+13.",
+	},
 
-  // ── CV / RESUME ───────────────────────────────────────────
-  cv: {
-    title: "CV.pdf",
-    downloadUrl: "#",
-    experience: [
-      {
-        role: "Lorem Role 1",
-        company: "Lorem Company 1",
-        period: "2020 - 2021",
-        description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      },
-      {
-        role: "Lorem Role 2",
-        company: "Lorem Company 2",
-        period: "2021 - 2022",
-        description: "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-      },
-    ],
-    education: [
-      {
-        degree: "Bachelor of Lorem Ipsum",
-        institution: "University of Dolor Sit",
-        year: "2019",
-      },
-    ],
-    awards: [
-      "Lorem Award 1",
-      "Lorem Award 2",
-    ],
-  },
+	cv: {
+		downloadUrl: "#",
+		experience: [
+			{
+			},
+		],
+		education: [
+			{ degree: "BDI Game and Industrial Design", institution: "Victoria University of Wellington", year: "2027" },
+		],
+		awards: [
+			"Tangiwai Excellence Scholarship, 2023",
+			"Faculty of Architecture and Design Innovation Deans List, 2024",
+			"Prime Ministers Scholarship for Asia and Latin America, 2025",
+		],
+	},
 
-  // ── PROJECTS ──────────────────────────────────────────────
-  projects: [
-    {
-      key: "game1",
-      title: "LOREM_GAME_1",
-      subtitle: "project.exe",
-      icon: "🎮",
-      year: "2024",
-      type: "GAME",
-      tags: ["LOREM", "IPSUM", "GAME", "JAM"],
-      voidPos: [-4.8, 1.6, 0.2],
-      previewType: "platformer",
-      shortDesc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      fullDesc: [
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-        "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-      ],
-      playUrl: "#",
-      platform: "Browser / Windows",
-      duration: "~30 min",
-    },
-    {
-      key: "game2",
-      title: "LOREM_GAME_2",
-      subtitle: "static_fauna.exe",
-      icon: "👾",
-      year: "2023",
-      type: "GAME",
-      tags: ["LOREM", "HORROR", "EXPLORATION"],
-      voidPos: [4.8, 0.8, -0.3],
-      previewType: "horror",
-      shortDesc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      fullDesc: [
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-        "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-      ],
-      playUrl: "#",
-      platform: "Browser / Windows / Mac",
-      duration: "~35 min",
-    },
-    {
-      key: "game3",
-      title: "LOREM_GAME_3",
-      subtitle: "corridor.exe",
-      icon: "🕹️",
-      year: "2022",
-      type: "GAME",
-      tags: ["LOREM", "WALKING SIM", "BRUTALIST"],
-      voidPos: [-4.5, -1.4, 0.4],
-      previewType: "corridor",
-      shortDesc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      fullDesc: [
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-        "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-      ],
-      playUrl: "#",
-      platform: "Browser",
-      duration: "∞",
-    },
-    {
-      key: "design1",
-      title: "LOREM_DESIGN_1",
-      subtitle: "brand_null.pdf",
-      icon: "✦",
-      year: "2024",
-      type: "DESIGN",
-      tags: ["BRANDING", "IDENTITY", "PRINT"],
-      voidPos: [4.2, -1.8, 0.1],
-      previewType: "brand",
-      shortDesc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      fullDesc: [
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-        "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-      ],
-      playUrl: "#",
-      platform: "Print / Digital",
-      duration: "N/A",
-    },
-  ],
+	projects: [
+		{
+			key: "circle_means_orange",
+			title: "CIRCLE_MEANS_ORANGE",
+			icon: "🟠",
+			year: "2024",
+			type: "GAME",
+			tags: ["GODOT", "EXPERIMENTAL", "SYSTEMS", "MINIMAL"],
+			previewType: "abstract",
+			shortDesc: "Abstract systems-driven game built around rule interpretation and constraint.",
+			fullDesc: [
+				"Circle Means Orange is a minimalist experimental game about systems and rule perception.",
+				"The player navigates an abstract space where visual symbols define mechanical logic. Meaning is not explained — it must be inferred.",
+				"Built in Godot as an exploration of constraint-based design and authored rule systems.",
+			],
+			playUrl: "#",
+			platform: "PC",
+			duration: "~15–25 min",
+		},
 
-  // ── BOOT SEQUENCE ─────────────────────────────────────────
-  bootLines: [
-    "LJSYS v2.0 BIOS — Initializing...",
-    "MEMORY CHECK: ████████████████ 64MB OK",
-    "VOID ENGINE: loading renderer...",
-    "PSX MODE: vertex jitter enabled",
-    "DESKTOP ENVIRONMENT: starting...",
-    "Welcome to LJSYS Desktop",
-    "> _",
-  ],
+		{
+			key: "crackdown",
+			title: "CRACKDOWN",
+			icon: "🔒",
+			year: "2024",
+			type: "GAME",
+			tags: ["UNITY", "3D", "ACTION", "EXPERIMENTAL"],
+			previewType: "action",
+			shortDesc: "Tight 3D action prototype focused on movement and environmental pressure.",
+			fullDesc: [
+				"Crackdown is a fast-paced 3D action prototype exploring spatial control and movement tension.",
+				"The game focuses on player positioning, restricted environments, and escalating mechanical pressure.",
+				"Built as an experiment in clarity, impact feedback, and constrained level design.",
+			],
+			playUrl: "#",
+			platform: "PC",
+			duration: "Prototype",
+		},
+
+		{
+			key: "apple_crypt",
+			title: "APPLE_CRYPT",
+			icon: "🍎",
+			year: "2023",
+			type: "GAME",
+			tags: ["GODOT", "HORROR", "PSX", "ATMOSPHERIC"],
+			previewType: "horror",
+			shortDesc: "PSX-inspired atmospheric horror experience set in a fragmented space.",
+			fullDesc: [
+				"Apple Crypt is a short-form atmospheric horror game inspired by PSX-era visuals and low-poly environments.",
+				"The experience focuses on mood, spatial unease, and subtle environmental storytelling.",
+				"Built in Godot with intentional vertex instability and texture distortion to emulate retro rendering artifacts.",
+			],
+			playUrl: "#",
+			platform: "PC",
+			duration: "~20 min",
+		},
+
+		{
+			key: "too_many_games",
+			title: "TOO_MANY_GAMES",
+			icon: "🕹️",
+			year: "2025",
+			type: "PROJECT",
+			tags: ["WEB", "SYSTEMS", "ARCHIVE", "INTERFACE"],
+			previewType: "interface",
+			shortDesc: "Interactive system exploring game overload and digital excess.",
+			fullDesc: [
+				"Too Many Games is an interactive project examining digital saturation and content overload.",
+				"The work presents a dense archive-like interface where games compete for attention.",
+				"Explores navigation friction, interface noise, and the psychology of endless choice.",
+			],
+			playUrl: "#",
+			platform: "Web",
+			duration: "Interactive",
+		},
+
+		{
+			key: "lifese",
+			title: "LIFESE",
+			icon: "◼",
+			year: "2025",
+			type: "PROJECT",
+			tags: ["SPECULATIVE", "SYSTEMS", "DESIGN", "WORLD-BUILDING"],
+			previewType: "concept",
+			shortDesc: "Speculative system design project exploring alternate structures of living.",
+			fullDesc: [
+				"LifeSE is a speculative design project exploring alternate systemic structures for everyday life.",
+				"The project investigates constraint, optimisation, and how systems shape behaviour.",
+				"Developed as a conceptual framework combining visual identity, documentation, and interactive elements.",
+			],
+			playUrl: "#",
+			platform: "Concept / Digital",
+			duration: "Ongoing",
+		},
+
+		{
+			key: "orbit",
+			title: "ORBIT",
+			icon: "🛰",
+			year: "2025",
+			type: "PROJECT",
+			tags: ["3D", "SPATIAL", "INTERACTION", "EXPERIMENTAL"],
+			previewType: "spatial",
+			shortDesc: "Spatial interaction experiment focused on rotation, gravity, and digital movement.",
+			fullDesc: [
+				"Orbit is a spatial interaction project built around rotation, gravity, and controlled movement.",
+				"The experience explores circular logic, looping motion, and environmental responsiveness.",
+				"Developed as an experimental 3D study in digital space and player orientation.",
+			],
+			playUrl: "#",
+			platform: "3D Interactive",
+			duration: "Prototype",
+		},
+	],
+
+	bootLines: [
+		{ text: "LUKAS JOY SYSTEMS  —  LJBIOS v2.04", style: "header" },
+		{ text: "Copyright (C) 1994-2026 Lukas Joy Systems, Inc.", style: "dim" },
+		{ text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style: "sep" },
+		{ text: "", style: "gap" },
+		{ text: "CPU  : VOID-486 DX4/100MHz  ·  FPU : Installed", style: "normal" },
+		{ text: "CACHE: L1 8KB  L2 256KB     ·  BUS : VOID-ISA 33MHz", style: "normal" },
+		{ text: "", style: "gap" },
+		{ text: "MEMORY TEST", style: "normal" },
+		{ text: "  Base Memory  :   640 KB  ......................  OK", style: "ok" },
+		{ text: "  Extended Mem : 65,536 KB  ......................  OK", style: "ok" },
+		{ text: "  Video RAM    :   1,024 KB  ......................  OK", style: "ok" },
+		{ text: "  Shadow RAM   :   Enabled  ......................  OK", style: "ok" },
+		{ text: "", style: "gap" },
+		{ text: "HARDWARE DETECTION", style: "normal" },
+		{ text: "  Video Adapter : PSX-VRAM 1MB  240p  ..............  OK", style: "ok" },
+		{ text: "  Void I/O Port : /dev/null  ......................  CONNECTED", style: "ok" },
+		{ text: "  Sound Device  : OPL2 FM Synthesizer  .............  OK", style: "ok" },
+		{ text: "  3D Renderer   : Three.js r128 WebGL  ..............  OK", style: "ok" },
+		{ text: "  CRT Filter    : Scanline mode 50Hz  ................  ACTIVE", style: "ok" },
+		{ text: "", style: "gap" },
+		{ text: "LOADING LJSYS DESKTOP ENVIRONMENT", style: "normal" },
+		{ text: "  kernel.sys  ......................................  LOADED", style: "ok" },
+		{ text: "  void.drv  ........................................  LOADED", style: "ok" },
+		{ text: "  psx_renderer.drv  ...............................  LOADED", style: "ok" },
+		{ text: "  desktop.exe  .....................................  LOADED", style: "ok" },
+		{ text: "  project.exe  .....................................  READY", style: "ok" },
+		{ text: "", style: "gap" },
+		{ text: "All systems nominal. Starting desktop...", style: "dim" },
+		{ text: "", style: "gap" },
+		{ text: "C:\\LJSYS> _", style: "cursor" },
+	],
 
 };

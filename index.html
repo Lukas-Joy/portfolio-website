@@ -3,74 +3,388 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lukas Joy — Retro Desktop Hub</title>
-  <meta name="description" content="Lukas Joy — Designer & Game Developer. Interactive 3D portfolio.">
+  <title>Lukas Joy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   Palette split:
+     INSIDE  monitor  →  phosphor green on near-black
+     OUTSIDE monitor  →  warm sepia / dusty beige (retro plastic)
+   ═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  /* ── PHOSPHOR (inside monitor & popup windows) */
+  --ph:       #39ff5a;
+  --ph-dim:   #1d7a2e;
+  --ph-faint: rgba(57,255,90,0.06);
+  --bg:       #030c05;
+  --amber:    #ffb347;
+
+  /* ── WARM SEPIA (outside monitor void) */
+  --void:       #14100a;     /* dark warm brown background              */
+  --sepia-hi:   #c8b48a;     /* warm cream / highlight text             */
+  --sepia-mid:  #8a7455;     /* mid-tone sepia                          */
+  --sepia-dim:  #4a3820;     /* dark sepia                              */
+  --sepia-star: #9a8060;     /* starfield / particle colour             */
+
+  /* ── POPUP WINDOWS  (phosphor green but floating in warm void) */
+  --wb:       rgba(3,10,5,0.97);
+
+  --tbh: 26px;
+  --vt:  'VT323',monospace;
+  --mono:'Share Tech Mono',monospace;
+  --px:  'Press Start 2P',monospace;
+}
+
+html,body{width:100%;height:100%;overflow:hidden;background:var(--void);font-family:var(--vt);color:var(--ph)}
+body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpolygon points='0,0 0,11 3,8 5,13 7,12 5,7 9,7' fill='%23c8b48a' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E") 0 0,auto}
+
+/* ── THREE.JS CANVAS ──────────────────────────────────────── */
+#three-canvas{position:fixed;inset:0;z-index:0;display:block}
+
+/* ── VOID PARTICLES (warm sepia drift) ───────────────────── */
+#particles{position:fixed;inset:0;pointer-events:none;z-index:2}
+.void-particle{
+  position:absolute;width:1.5px;height:1.5px;
+  background:var(--sepia-star);border-radius:50%;
+  animation:pdrift linear infinite;opacity:0
+}
+@keyframes pdrift{
+  0%  {transform:translateY(0) translateX(0);opacity:0}
+  8%  {opacity:.4}
+  90% {opacity:.1}
+  100%{transform:translateY(-100vh) translateX(28px);opacity:0}
+}
+
+/* ── VOID ICON LAYER ──────────────────────────────────────── */
+#void-layer{position:fixed;inset:0;pointer-events:none;z-index:6}
+.void-icon{
+  position:absolute;pointer-events:all;display:none;
+  flex-direction:column;align-items:center;cursor:pointer;
+  transform:translate(-50%,-50%);user-select:none;
+}
+.vi-glyph{
+  font-size:26px;display:block;line-height:1;
+  filter:drop-shadow(0 0 8px var(--ph));
+  transition:transform .15s,filter .15s;
+}
+.void-icon:hover   .vi-glyph{transform:scale(1.18);filter:drop-shadow(0 0 14px var(--ph)) brightness(1.2)}
+.void-icon.selected .vi-glyph{filter:drop-shadow(0 0 18px var(--ph)) brightness(1.4)}
+.vi-label{
+  font-family:var(--px);font-size:5px;color:var(--ph);
+  margin-top:58px; /* push below the 3D mesh */
+  letter-spacing:1px;white-space:nowrap;
+  text-shadow:0 0 8px var(--ph);display:block;
+  background:rgba(0,0,0,0.55);padding:2px 5px;
+}
+
+/* ── SCREEN OVERLAY ───────────────────────────────────────── */
+#screen-overlay{
+  position:fixed;z-index:10;overflow:hidden;
+  background:var(--bg);
+}
+/* CRT scanlines */
+#screen-overlay::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    to bottom, transparent 0, transparent 2px,
+    rgba(0,0,0,.20) 2px, rgba(0,0,0,.20) 3px);
+  pointer-events:none;z-index:9000
+}
+/* CRT vignette */
+#screen-overlay::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,transparent 52%,rgba(0,0,0,.62) 100%);
+  pointer-events:none;z-index:9001
+}
+#desktop-grid{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(57,255,90,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(57,255,90,.022) 1px,transparent 1px);
+  background-size:20px 20px;
+}
+
+/* ── BOOT SCREEN ──────────────────────────────────────────── */
+#boot-screen{
+  position:absolute;inset:0;background:#000;z-index:800;
+  display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:flex-start;padding:10px 13px;gap:0;
+  overflow:hidden;
+}
+.boot-line{
+  font-family:var(--mono);font-size:10px;color:var(--ph);
+  white-space:pre;line-height:1.55;min-height:1.55em;
+}
+.boot-line.ok     {color:#b8f0c4}
+.boot-line.dim    {color:var(--ph-dim)}
+.boot-line.warn   {color:#ffb347}
+.boot-line.header {color:#fff;font-family:var(--px);font-size:8px;letter-spacing:2px;margin-bottom:2px}
+.boot-line.cursor::after{content:'█';animation:bl .7s steps(1) infinite}
+@keyframes bl{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+/* ── DESKTOP ──────────────────────────────────────────────── */
+#desktop{position:absolute;inset:0;bottom:var(--tbh);overflow:hidden;display:none}
+
+/* ── DESKTOP ICONS ────────────────────────────────────────── */
+.desk-icon{
+  position:absolute;width:60px;text-align:center;cursor:pointer;
+  user-select:none;padding:4px 2px 5px;border:1px solid transparent;
+  border-radius:1px;z-index:10
+}
+.desk-icon:hover  {border-color:var(--ph-dim);background:var(--ph-faint)}
+.desk-icon.selected{border-color:var(--ph);background:rgba(57,255,90,.12)}
+.desk-icon-em{
+  font-size:24px;display:block;line-height:1;
+  filter:drop-shadow(0 0 4px var(--ph));margin:0 auto
+}
+.desk-icon:hover .desk-icon-em{animation:jit .1s steps(1) infinite}
+@keyframes jit{
+  0%  {transform:translate(0,0)}  25%{transform:translate(-1px,1px)}
+  50% {transform:translate(1px,-1px)} 75%{transform:translate(-1px,-1px)}
+}
+.desk-icon-lbl{
+  font-family:var(--mono);font-size:7.5px;color:var(--ph);
+  margin-top:3px;line-height:1.2;text-shadow:0 0 6px var(--ph);
+  word-break:break-all;display:block
+}
+
+/* ── TASKBAR ──────────────────────────────────────────────── */
+#taskbar{
+  position:absolute;bottom:0;left:0;right:0;height:var(--tbh);
+  background:rgba(0,14,4,.97);border-top:1px solid var(--ph-dim);
+  display:flex;align-items:center;padding:0 5px;gap:3px;z-index:50
+}
+#start-btn{
+  font-family:var(--px);font-size:5.5px;color:var(--bg);
+  background:var(--ph);border:none;padding:3px 7px;
+  cursor:pointer;letter-spacing:1px;white-space:nowrap;line-height:2
+}
+#start-btn:hover{background:#fff}#start-btn:active{transform:scale(.95)}
+.tb-sep{width:1px;height:16px;background:var(--ph-dim);margin:0 2px}
+.tb-icon{
+  font-family:var(--mono);font-size:9px;color:var(--ph);
+  padding:2px 5px;cursor:pointer;border:1px solid transparent;
+  transition:all .1s;white-space:nowrap
+}
+.tb-icon:hover  {border-color:var(--ph-dim);background:var(--ph-faint)}
+.tb-icon.running{color:#fff;border-color:var(--ph-dim)}
+#taskbar-clock{
+  font-family:var(--mono);font-size:9px;color:var(--ph);
+  padding:0 5px;border-left:1px solid var(--ph-dim);white-space:nowrap
+}
+
+/* ── PROJECT APP ──────────────────────────────────────────── */
+#project-app{
+  position:absolute;inset:0;background:var(--bg);
+  z-index:200;display:none;flex-direction:column
+}
+#proj-titlebar{
+  background:rgba(0,20,6,.98);border-bottom:1px solid var(--ph-dim);
+  padding:3px 7px;display:flex;align-items:center;
+  font-family:var(--px);font-size:5.5px;color:var(--ph);gap:6px;flex-shrink:0
+}
+.pt-title{flex:1;letter-spacing:1px}
+.app-btn{
+  width:14px;height:14px;background:var(--bg);border:1px solid var(--ph-dim);
+  cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;
+  color:var(--ph);font-family:var(--mono)
+}
+.app-btn:hover{background:rgba(57,255,90,.15);border-color:var(--ph)}
+#proj-body{flex:1;position:relative;overflow:hidden}
+
+/* empty */
+#proj-empty{
+  position:absolute;inset:0;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:10px
+}
+.pe-title{font-family:var(--px);font-size:7px;color:var(--ph-dim);letter-spacing:2px}
+.pe-sub{font-family:var(--mono);font-size:12px;color:var(--ph-dim);text-align:center}
+
+/* preview */
+#proj-preview{position:absolute;inset:0;display:none;flex-direction:column}
+#prev-wrap{
+  flex:1;position:relative;overflow:hidden;
+  display:flex;align-items:stretch;
+}
+#prev-wrap img,
+#prev-wrap canvas{width:100%;height:100%;display:block;image-rendering:pixelated;object-fit:cover}
+#prev-bar{
+  padding:4px 10px;border-top:1px solid var(--ph-dim);background:rgba(0,12,3,.9);
+  display:flex;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:9px;color:var(--ph-dim);flex-shrink:0
+}
+#prev-title{color:#fff;font-size:11px}
+.prev-hint{margin-left:auto;font-size:9px}
+
+/* info */
+#proj-info{
+  position:absolute;inset:0;display:none;flex-direction:column;
+  padding:16px 18px;overflow-y:auto
+}
+#proj-info::-webkit-scrollbar{width:5px}
+#proj-info::-webkit-scrollbar-thumb{background:var(--ph-dim)}
+#proj-info h1{font-family:var(--px);font-size:9px;color:#fff;letter-spacing:2px;margin-bottom:3px}
+.info-sub{font-family:var(--mono);font-size:10px;color:var(--ph-dim);margin-bottom:14px}
+#proj-info p{font-family:var(--vt);font-size:15px;color:var(--ph);margin-bottom:7px;line-height:1.5}
+.info-tags{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
+.itag{border:1px solid var(--ph-dim);padding:1px 7px;font-family:var(--mono);font-size:8.5px;color:var(--ph-dim)}
+.info-meta{font-family:var(--mono);font-size:10px;color:var(--ph-dim);border-top:1px solid var(--ph-dim);padding-top:10px;margin-top:10px}
+.info-link{
+  display:inline-block;margin-top:12px;border:1px solid var(--ph);
+  padding:5px 14px;font-family:var(--px);font-size:5.5px;
+  color:var(--ph);text-decoration:none;letter-spacing:1px
+}
+.info-link:hover{background:var(--ph);color:var(--bg)}
+.info-hint{font-family:var(--mono);font-size:9px;color:var(--ph-dim);margin-top:14px}
+
+/* ── POPUP WINDOWS ────────────────────────────────────────── */
+#windows-layer{position:fixed;inset:0;pointer-events:none;z-index:500}
+.popup-win{
+  position:fixed;background:var(--wb);
+  border:1px solid var(--ph-dim);
+  box-shadow:0 0 0 1px rgba(57,255,90,.07), 0 20px 60px rgba(0,0,0,.88);
+  min-width:260px;max-width:420px;pointer-events:all;
+  display:none;animation:wopen .12s steps(3);
+  resize:both;overflow:hidden;min-height:160px;
+  /* CRT scanline overlay on popup windows */
+}
+.popup-win::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    to bottom, transparent 0, transparent 2px,
+    rgba(0,0,0,.18) 2px, rgba(0,0,0,.18) 3px);
+  pointer-events:none;z-index:8000
+}
+.popup-win::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.35) 100%);
+  pointer-events:none;z-index:8001
+}
+.popup-win.open{display:block}
+.popup-win.focused{border-color:var(--ph);z-index:600}
+@keyframes wopen{0%{transform:scale(.93);opacity:0}100%{transform:scale(1);opacity:1}}
+
+.win-bar{
+  background:var(--ph-dim);color:#fff;padding:4px 7px;
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:grab;user-select:none;font-family:var(--px);font-size:6px;letter-spacing:1px;
+  position:sticky;top:0;z-index:8002;flex-shrink:0
+}
+.win-bar:active{cursor:grabbing}
+.popup-win.focused .win-bar{background:var(--ph);color:var(--bg)}
+.win-title{flex:1}
+.win-btns{display:flex;gap:3px}
+.win-btn{
+  width:13px;height:13px;background:transparent;border:1px solid rgba(255,255,255,.4);
+  cursor:pointer;font-size:8px;display:flex;align-items:center;justify-content:center;
+  color:inherit;font-family:var(--mono)
+}
+.win-btn:hover{background:rgba(255,255,255,.2)}
+.win-body{padding:13px 15px;overflow-y:auto;position:relative;z-index:8002;max-height:340px}
+.win-body h2{font-family:var(--px);font-size:6.5px;margin-bottom:11px;letter-spacing:2px;color:#fff;text-shadow:0 0 10px var(--ph)}
+.win-body p{font-family:var(--vt);font-size:15px;margin-bottom:7px;line-height:1.5}
+.win-body a{color:var(--amber);text-decoration:none}
+.win-body a:hover{text-decoration:underline}
+.wsep{border:none;border-top:1px solid var(--ph-dim);margin:10px 0}
+.wtag{display:inline-block;border:1px solid var(--ph-dim);padding:1px 7px;font-size:8.5px;margin:2px 2px 2px 0;color:var(--ph-dim);font-family:var(--mono)}
+.link-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(57,255,90,.07);font-family:var(--vt);font-size:15px}
+.lr-icon{width:20px;text-align:center}
+.lr-lbl{color:var(--ph-dim);font-size:10px;min-width:64px;font-family:var(--mono)}
+.wnote{font-size:11px!important;color:var(--ph-dim)!important;margin-top:10px}
+.cv-e{margin-bottom:13px}
+.cv-role{font-family:var(--px);font-size:6px;color:#fff;letter-spacing:1px}
+.cv-period{font-family:var(--mono);font-size:9px;color:var(--ph-dim);margin:3px 0}
+.cv-desc{font-family:var(--vt);font-size:14px;color:var(--ph);line-height:1.4}
+.cv-award{font-family:var(--vt);font-size:14px;color:var(--ph);margin-bottom:5px}
+.dl-btn{display:inline-block;margin-top:12px;border:1px solid var(--ph);padding:5px 14px;font-family:var(--px);font-size:5.5px;color:var(--ph);text-decoration:none;letter-spacing:1px}
+.dl-btn:hover{background:var(--ph);color:var(--bg)}
+
+/* ── TOAST ────────────────────────────────────────────────── */
+/* Warm sepia styling — lives in the outer void */
+#toast{
+  position:fixed;bottom:50px;right:18px;
+  background:rgba(20,16,10,0.97);
+  border:1px solid var(--sepia-mid);
+  color:var(--sepia-hi);
+  font-family:var(--mono);font-size:10px;padding:7px 12px;
+  z-index:9000;display:none;max-width:220px;line-height:1.4;
+  box-shadow:0 0 20px rgba(200,180,138,.1);
+}
+
+/* ── CRT FLICKER ──────────────────────────────────────────── */
+#crt-flicker{position:fixed;inset:0;pointer-events:none;z-index:9999;animation:flick 14s steps(1) infinite}
+@keyframes flick{
+  0%,94%,100%{opacity:0}
+  95%{opacity:.022;background:#fff}
+  96%{opacity:0}
+  97.5%{opacity:.012;background:#fff}
+}
+
+/* ── SHARED ───────────────────────────────────────────────── */
+.blink{animation:bl .9s steps(1) infinite}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--ph-dim)}
+
+/* ── VOID AMBIENT VIGNETTE ────────────────────────────────── */
+/* Subtle warm vignette over the entire viewport (behind UI) */
+#void-vignette{
+  position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse at 50% 50%,
+    transparent 30%,
+    rgba(20,16,10,0.55) 80%,
+    rgba(10,8,5,0.85) 100%);
+}
+</style>
 </head>
 <body>
 
-  <!-- ── THREE.JS CANVAS (fills viewport, z:0) ── -->
-  <canvas id="three-canvas"></canvas>
+<canvas id="three-canvas"></canvas>
+<div id="void-vignette"></div>
+<div id="particles"></div>
+<div id="void-layer"></div>
 
-  <!-- ── VOID PARTICLE LAYER ── -->
-  <div id="particles"></div>
+<div id="screen-overlay">
+  <div id="desktop-grid"></div>
 
-  <!-- ── VOID PROJECT ICON LAYER (appears when project.exe open) ── -->
-  <div id="void-layer"></div>
+  <div id="boot-screen"></div>
 
-  <!-- ── SCREEN OVERLAY (positioned each frame to match 3D monitor screen) ── -->
-  <div id="screen-overlay">
-    <!-- Subtle grid texture -->
-    <div id="desktop-bg-grid"></div>
+  <div id="desktop">
 
-    <!-- Boot sequence — shown first -->
-    <div id="boot-screen"></div>
-
-    <!-- Desktop environment — revealed after boot -->
-    <div id="desktop">
-
-      <!-- project.exe — full screen app (hidden until launched) -->
-      <div id="project-app">
-        <div id="project-app-titlebar">
-          <span class="app-title">📁 PROJECT.EXE — Lukas Joy Project Catalogue</span>
-          <div style="display:flex;gap:3px">
-            <div class="app-btn" data-action="min"   title="Minimise">_</div>
-            <div class="app-btn" data-action="close" title="Close">✕</div>
-          </div>
-        </div>
-        <div id="project-app-body">
-          <!-- States injected by project-app.js -->
+    <div id="project-app">
+      <div id="proj-titlebar">
+        <span class="pt-title">&#128193; PROJECT.EXE &mdash; Lukas Joy Project Catalogue</span>
+        <div style="display:flex;gap:3px">
+          <div class="app-btn" id="proj-min"   title="Minimise">_</div>
+          <div class="app-btn" id="proj-close" title="Close">&#x2715;</div>
         </div>
       </div>
-
-      <!-- Taskbar -->
-      <div id="taskbar"></div>
-
+      <div id="proj-body"></div>
     </div>
+
+    <div id="taskbar"></div>
+
   </div>
+</div>
 
-  <!-- ── POPUP WINDOWS LAYER (full viewport, fixed) ── -->
-  <div id="windows-layer"></div>
+<div id="windows-layer"></div>
+<div id="toast"></div>
+<div id="crt-flicker"></div>
 
-  <!-- ── TOAST NOTIFICATION ── -->
-  <div id="toast"></div>
+<!-- Three.js r128 + loaders -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-  <!-- ── CRT FLICKER ── -->
-  <div id="crt-flicker"></div>
-
-  <!-- ── SCRIPTS ── -->
-  <!-- Three.js r128 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Site content database -->
-  <script src="data.js"></script>
-  <!-- Modules (order matters) -->
-  <script src="js/scene.js"></script>
-  <script src="js/windows.js"></script>
-  <script src="js/project-app.js"></script>
-  <script src="js/desktop.js"></script>
-  <script src="js/main.js"></script>
+<!-- Site data + modules -->
+<script src="data.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/windows.js"></script>
+<script src="js/project-app.js"></script>
+<script src="js/desktop.js"></script>
+<script src="js/main.js"></script>
 
 </body>
 </html>
