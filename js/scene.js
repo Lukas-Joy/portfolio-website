@@ -70,27 +70,14 @@ var Scene = (function () {
     camera.position.copy(cameraViews.default.pos);
     camera.lookAt(cameraViews.default.target);
 
-    // Warm ambient (sepia room light)
-    threeScene.add(new THREE.AmbientLight(COL_AMBIENT, 1.5));
-
     // Strong screen glow light — makes monitor bright against warm bg
     var screenGlow = new THREE.PointLight(0x39ff5a, 3.5, 10);
     screenGlow.position.set(0, 0.1, 1.6);
     threeScene.add(screenGlow);
 
-    // Warm fill from above-right (room light)
-    var roomLight = new THREE.PointLight(0x6b4c28, 0.9, 14);
-    roomLight.position.set(3, 4, 4);
-    threeScene.add(roomLight);
-
-    // Subtle warm rim behind monitor (makes bezel edges pop)
-    var rimLight = new THREE.PointLight(0x4a3018, 0.6, 8);
-    rimLight.position.set(0, 2, -2);
-    threeScene.add(rimLight);
-
     // Overhead directional light
-    overheadLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    overheadLight.position.set(0, 5, 0);
+    overheadLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    overheadLight.position.set(3.30, 4.20, 5.27);
     threeScene.add(overheadLight);
 
     buildMonitor();
@@ -106,7 +93,7 @@ var Scene = (function () {
 
     requestAnimationFrame(renderLoop);
     // initScreenCornerDebug();  // Add this at end of init()
-    initOverheadLightDebug();   // Uncomment to enable overhead light debug
+    // initOverheadLightDebug();   // Uncomment to enable overhead light debug
   }
 
     // ── DEBUG: VISUAL SCREEN CORNER HELPER ─────────────────────
@@ -211,9 +198,9 @@ var Scene = (function () {
     // elevation = angle from horizontal (0 = side, 90 = straight down)
     // azimuth   = angle around Y axis
     var spherical = {
-      radius:    overheadLight.position.length(),
-      azimuth:   0,    // degrees, 0 = +Z side
-      elevation: 90,   // degrees, 90 = straight above
+      radius:    Math.sqrt(3.30*3.30 + 4.20*4.20 + 5.27*5.27), // ~7.35
+      azimuth:   32.0,
+      elevation: 34.0,
     };
 
     function sphericalToXYZ(r, azDeg, elDeg) {
@@ -235,12 +222,12 @@ var Scene = (function () {
     var params = {
       INTENSITY: overheadLight.intensity,
       COLOR: '#ffffff',
-      AZIMUTH:   spherical.azimuth,
-      ELEVATION: spherical.elevation,
-      RADIUS:    spherical.radius,
-      POS_X: overheadLight.position.x,
-      POS_Y: overheadLight.position.y,
-      POS_Z: overheadLight.position.z,
+      AZIMUTH:   32.0,
+      ELEVATION: 34.0,
+      RADIUS:    Math.sqrt(3.30*3.30 + 4.20*4.20 + 5.27*5.27),
+      POS_X: 3.30,
+      POS_Y: 4.20,
+      POS_Z: 5.27,
     };
 
     // Build a small row of camera view buttons
@@ -653,27 +640,32 @@ var Scene = (function () {
 
   // ── ICON ANIMATION STEP ───────────────────────────────────
   function stepIconAnims() {
-    var allDone = true;
     iconAnims.forEach(function (anim) {
       if (anim.direction === 0) return;
-      allDone = false;
 
+      // Skip until stagger delay clears (negative progress = waiting)
       anim.progress += ICON_ANIM_SPEED;
-      if (anim.progress >= 1) {
-        anim.progress = 1;
-        anim.direction = 0;   // done
-      }
+      if (anim.progress < 0) return;
 
-      var t = anim.direction === 1
-        ? easeOutBack(anim.progress)    // opening: fly out with bounce
-        : easeInBack(anim.progress);    // closing: suck back in
+      var clamped = Math.min(anim.progress, 1);
 
       if (anim.direction === 1) {
-        // Fly OUT: origin → target
+        // Fly OUT: origin → target with overshoot bounce
+        var t = easeOutBack(clamped);
         anim.mesh.position.lerpVectors(ICON_ORIGIN, anim.targetPos, t);
+        if (clamped >= 1) {
+          // Snap exactly to target so the mesh stays put
+          anim.mesh.position.copy(anim.targetPos);
+          anim.direction = 0;
+        }
       } else {
-        // Fly IN (reverse): target → origin
+        // Fly IN: target → origin
+        var t = easeInBack(clamped);
         anim.mesh.position.lerpVectors(anim.targetPos, ICON_ORIGIN, t);
+        if (clamped >= 1) {
+          anim.mesh.position.copy(ICON_ORIGIN);
+          anim.direction = 0;
+        }
       }
     });
   }
