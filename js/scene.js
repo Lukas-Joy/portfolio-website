@@ -11,6 +11,7 @@ var Scene = (function () {
   var camera, renderer, threeScene, monitorGroup;
   var projectMeshGroup;    // group holding all 3D project icons
   var projectMeshes = [];  // [{mesh, projKey, rotSpeed}]
+  var overheadLight;       // overhead directional light for debug control
 
   // Screen face corners in local monitor space
   var SCREEN_W   = 1.65;
@@ -37,6 +38,24 @@ var Scene = (function () {
   var COL_STAR        = 0x9a8060;
   var COL_BEZEL       = 0x222222;
 
+  // ── Camera view management ─────────────────────────────────
+  var cameraViews = {
+    default: { pos: new THREE.Vector3(0, 0.05, 5.8), target: new THREE.Vector3(0, 0, 0) },
+    top:     { pos: new THREE.Vector3(0, 10, 0.01),  target: new THREE.Vector3(0, 0, 0) },
+    side:    { pos: new THREE.Vector3(10, 2, 0),     target: new THREE.Vector3(0, 0, 0) },
+    front:   { pos: new THREE.Vector3(0, 1, 8),      target: new THREE.Vector3(0, 0, 0) },
+  };
+  var activeCameraView = 'default';
+  // Camera animation
+  var camAnim = { active: false, fromPos: new THREE.Vector3(), fromTarget: new THREE.Vector3(),
+                  toPos: new THREE.Vector3(), toTarget: new THREE.Vector3(), progress: 0 };
+
+  // ── Project icon fly-in/out animation ─────────────────────
+  var ICON_ORIGIN = new THREE.Vector3(0, 0, -1.2); // behind / at monitor center
+  var ICON_ANIM_SPEED = 0.045;                      // per-frame lerp step
+  // Each entry: { mesh, targetPos, progress [0..1], direction [1=open,-1=close] }
+  var iconAnims = [];
+
   // ── INIT ──────────────────────────────────────────────────
   function init() {
     var canvas = document.getElementById('three-canvas');
@@ -48,8 +67,8 @@ var Scene = (function () {
     threeScene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 0.05, 5.8);
-    camera.lookAt(0, 0, 0);
+    camera.position.copy(cameraViews.default.pos);
+    camera.lookAt(cameraViews.default.target);
 
     // Warm ambient (sepia room light)
     threeScene.add(new THREE.AmbientLight(COL_AMBIENT, 1.5));
@@ -69,6 +88,11 @@ var Scene = (function () {
     rimLight.position.set(0, 2, -2);
     threeScene.add(rimLight);
 
+    // Overhead directional light
+    overheadLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    overheadLight.position.set(0, 5, 0);
+    threeScene.add(overheadLight);
+
     buildMonitor();
     buildStarfield();
     buildVoidParticles();
@@ -82,6 +106,7 @@ var Scene = (function () {
 
     requestAnimationFrame(renderLoop);
     // initScreenCornerDebug();  // Add this at end of init()
+    initOverheadLightDebug();   // Uncomment to enable overhead light debug
   }
 
     // ── DEBUG: VISUAL SCREEN CORNER HELPER ─────────────────────
@@ -154,6 +179,201 @@ var Scene = (function () {
     };
 
     window.updateScreenCorners('SCREEN_W', inputs.SCREEN_W);
+  }
+
+  // ── DEBUG: OVERHEAD LIGHT CONTROL (with rotation + camera views) ──
+  function initOverheadLightDebug() {
+    var debugContainer = document.createElement('div');
+    debugContainer.id = 'overhead-light-debug';
+    debugContainer.style.cssText = [
+      'position:fixed;top:10px;right:10px',
+      'background:rgba(0,0,0,0.92)',
+      'color:#0f0',
+      'font-family:monospace',
+      'font-size:11px',
+      'padding:10px',
+      'z-index:9999',
+      'width:280px',
+      'border:1px solid #0f0',
+      'border-radius:4px',
+      'user-select:none',
+    ].join(';');
+    document.body.appendChild(debugContainer);
+
+    // Light helper sphere so we can see the light position in scene
+    var helperGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    var helperMat = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true });
+    var lightHelper = new THREE.Mesh(helperGeo, helperMat);
+    lightHelper.position.copy(overheadLight.position);
+    threeScene.add(lightHelper);
+
+    // Spherical coords for the directional light (so rotation makes sense)
+    // elevation = angle from horizontal (0 = side, 90 = straight down)
+    // azimuth   = angle around Y axis
+    var spherical = {
+      radius:    overheadLight.position.length(),
+      azimuth:   0,    // degrees, 0 = +Z side
+      elevation: 90,   // degrees, 90 = straight above
+    };
+
+    function sphericalToXYZ(r, azDeg, elDeg) {
+      var az = azDeg * Math.PI / 180;
+      var el = elDeg * Math.PI / 180;
+      return {
+        x: r * Math.cos(el) * Math.sin(az),
+        y: r * Math.sin(el),
+        z: r * Math.cos(el) * Math.cos(az),
+      };
+    }
+
+    function applySpherical() {
+      var p = sphericalToXYZ(spherical.radius, spherical.azimuth, spherical.elevation);
+      overheadLight.position.set(p.x, p.y, p.z);
+      lightHelper.position.copy(overheadLight.position);
+    }
+
+    var params = {
+      INTENSITY: overheadLight.intensity,
+      COLOR: '#ffffff',
+      AZIMUTH:   spherical.azimuth,
+      ELEVATION: spherical.elevation,
+      RADIUS:    spherical.radius,
+      POS_X: overheadLight.position.x,
+      POS_Y: overheadLight.position.y,
+      POS_Z: overheadLight.position.z,
+    };
+
+    // Build a small row of camera view buttons
+    var viewNames = ['default', 'top', 'side', 'front'];
+
+    function updateUI() {
+      var pos = overheadLight.position;
+      var html = '';
+
+      // ── Title + helper toggle ──
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+      html += '<strong style="font-size:12px;">🔦 Overhead Light Debug</strong>';
+      html += '<label style="cursor:pointer;font-size:10px;">';
+      html += '<input type="checkbox" id="dbg-helper-toggle" checked onchange="window._dbgHelperToggle(this.checked)" style="margin-right:3px;">';
+      html += 'Show helper</label>';
+      html += '</div>';
+
+      // ── Live position readout ──
+      html += '<div style="color:#888;margin-bottom:6px;font-size:10px;">';
+      html += 'pos: (' + pos.x.toFixed(2) + ', ' + pos.y.toFixed(2) + ', ' + pos.z.toFixed(2) + ')&nbsp;';
+      html += 'az: ' + spherical.azimuth.toFixed(1) + '° el: ' + spherical.elevation.toFixed(1) + '°</div>';
+
+      // ── Camera view buttons ──
+      html += '<div style="margin-bottom:8px;">';
+      html += '<span style="color:#888;font-size:10px;">Camera view: </span><br style="margin:2px 0;">';
+      viewNames.forEach(function (name) {
+        var active = activeCameraView === name;
+        var btnStyle = [
+          'display:inline-block;margin:2px 2px 2px 0;padding:3px 8px',
+          'border:1px solid ' + (active ? '#0f0' : '#555'),
+          'border-radius:3px',
+          'cursor:pointer',
+          'font-family:monospace;font-size:10px',
+          'background:' + (active ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.04)'),
+          'color:' + (active ? '#0f0' : '#aaa'),
+        ].join(';');
+        html += '<span style="' + btnStyle + '" onclick="window._dbgCamView(\'' + name + '\')">' + name.toUpperCase() + '</span>';
+      });
+      html += '</div>';
+
+      // ── Rotation sliders (azimuth / elevation / radius) ──
+      html += '<div style="color:#0aa;font-size:10px;margin-bottom:4px;">▸ Rotation</div>';
+      [
+        { key: 'AZIMUTH',   label: 'Azimuth',   min: -180, max: 180, step: 1 },
+        { key: 'ELEVATION', label: 'Elevation', min: 0,    max: 90,  step: 1 },
+        { key: 'RADIUS',    label: 'Radius',    min: 1,    max: 20,  step: 0.5 },
+      ].forEach(function (s) {
+        html += '<label style="display:block;margin-bottom:4px;">' + s.label + ': ';
+        html += '<span id="dbg-val-' + s.key + '" style="color:#fff;">' + params[s.key].toFixed(1) + '</span><br>';
+        html += '<input type="range" min="' + s.min + '" max="' + s.max + '" step="' + s.step + '" value="' + params[s.key] + '"';
+        html += ' oninput="window._dbgLightChange(\'' + s.key + '\',this.value)"';
+        html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+        html += '</label>';
+      });
+
+      // ── Intensity + Colour ──
+      html += '<div style="color:#0aa;font-size:10px;margin:6px 0 4px;">▸ Appearance</div>';
+      html += '<label style="display:block;margin-bottom:4px;">Intensity: ';
+      html += '<span id="dbg-val-INTENSITY" style="color:#fff;">' + params.INTENSITY.toFixed(2) + '</span><br>';
+      html += '<input type="range" min="0" max="5" step="0.05" value="' + params.INTENSITY + '"';
+      html += ' oninput="window._dbgLightChange(\'INTENSITY\',this.value)"';
+      html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+      html += '</label>';
+      html += '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">Colour:';
+      html += '<input type="color" value="' + params.COLOR + '"';
+      html += ' onchange="window._dbgLightChange(\'COLOR\',this.value)"';
+      html += ' style="flex:1;height:24px;cursor:pointer;border:1px solid #0f0;background:none;"/>';
+      html += '</label>';
+
+      // ── Fine XYZ position ──
+      html += '<div style="color:#0aa;font-size:10px;margin:6px 0 4px;">▸ Fine Position</div>';
+      ['POS_X','POS_Y','POS_Z'].forEach(function (key) {
+        html += '<label style="display:block;margin-bottom:4px;">' + key + ': ';
+        html += '<input type="number" step="0.1" value="' + params[key].toFixed(2) + '"';
+        html += ' onchange="window._dbgLightChange(\'' + key + '\',this.value)"';
+        html += ' style="width:100%;background:#111;color:#0f0;border:1px solid #333;padding:3px;font-family:monospace;"/>';
+        html += '</label>';
+      });
+
+      debugContainer.innerHTML = html;
+    }
+
+    // ── Global handlers ──────────────────────────────────────
+    window._dbgHelperToggle = function (on) {
+      lightHelper.visible = on;
+    };
+
+    window._dbgCamView = function (name) {
+      if (!cameraViews[name]) return;
+      activeCameraView = name;
+      // Kick off smooth camera animation
+      camAnim.fromPos.copy(camera.position);
+      camAnim.fromTarget.set(0, 0, 0);   // approximate — always looking at origin
+      camAnim.toPos.copy(cameraViews[name].pos);
+      camAnim.toTarget.copy(cameraViews[name].target);
+      camAnim.progress = 0;
+      camAnim.active = true;
+      updateUI();   // refresh button highlights
+    };
+
+    window._dbgLightChange = function (key, value) {
+      var v = parseFloat(value);
+      params[key] = isNaN(v) ? value : v;
+
+      if (key === 'AZIMUTH')   { spherical.azimuth   = v; applySpherical(); }
+      else if (key === 'ELEVATION') { spherical.elevation = v; applySpherical(); }
+      else if (key === 'RADIUS')    { spherical.radius    = v; applySpherical(); }
+      else if (key === 'INTENSITY') { overheadLight.intensity = v; }
+      else if (key === 'COLOR')     { overheadLight.color.set(value); }
+      else if (key === 'POS_X') { overheadLight.position.x = v; lightHelper.position.x = v;
+                                   // Sync back to spherical
+                                   spherical.azimuth   = Math.atan2(overheadLight.position.x, overheadLight.position.z) * 180 / Math.PI;
+                                   spherical.elevation = Math.atan2(overheadLight.position.y, Math.sqrt(overheadLight.position.x*overheadLight.position.x + overheadLight.position.z*overheadLight.position.z)) * 180 / Math.PI;
+                                   spherical.radius    = overheadLight.position.length(); }
+      else if (key === 'POS_Y') { overheadLight.position.y = v; lightHelper.position.y = v; }
+      else if (key === 'POS_Z') { overheadLight.position.z = v; lightHelper.position.z = v; }
+
+      // Update POS_X/Y/Z params from spherical changes
+      if (['AZIMUTH','ELEVATION','RADIUS'].indexOf(key) !== -1) {
+        params.POS_X = overheadLight.position.x;
+        params.POS_Y = overheadLight.position.y;
+        params.POS_Z = overheadLight.position.z;
+      }
+
+      // Update live value display spans without full re-render
+      var valEl = document.getElementById('dbg-val-' + key);
+      if (valEl) valEl.textContent = (typeof v === 'number' ? v.toFixed(typeof value === 'string' && value.indexOf('.') !== -1 ? 2 : 1) : value);
+
+      // Refresh full UI every so often (cheap enough)
+      updateUI();
+    };
+
+    updateUI();
   }
 
   // ── MONITOR ───────────────────────────────────────────────
@@ -249,17 +469,18 @@ var Scene = (function () {
       var ySpacing  = colSize > 1 ? Math.min(1.7, 3.0 / (colSize - 1)) : 0;
       var yPos      = colSize > 1 ? (localIdx - (colSize - 1) / 2) * ySpacing : 0;
 
-      var pos = new THREE.Vector3(colX, yPos, 0.0);
-      proj._scenePos = pos;   // cached for HTML overlay projection
+      var targetPos = new THREE.Vector3(colX, yPos, 0.0);
+      proj._scenePos = targetPos;   // cached for HTML overlay projection
 
       // Default geometry: low-poly card/tile
       var geo = new THREE.BoxGeometry(0.88, 0.88, 0.10, 2, 2, 1);
       var mat = new THREE.MeshLambertMaterial({ color: 0x1a2e1d });
 
       var mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(pos);
+      // Start at the hidden/origin position behind the monitor
+      mesh.position.copy(ICON_ORIGIN);
       // Isometric tilt — angle down 10 degrees
-      mesh.rotation.x = 10 * (Math.PI / 180);  // 45 degrees in radians
+      mesh.rotation.x = 10 * (Math.PI / 180);
 
       var rotSpeed = (0.007 + Math.random() * 0.004) * (Math.random() > 0.5 ? 1 : -1);
       var rotSpeedX = (0.003 + Math.random() * 0.003) * (Math.random() > 0.5 ? 1 : -1);
@@ -271,6 +492,9 @@ var Scene = (function () {
 
       projectMeshGroup.add(mesh);
       projectMeshes.push(mesh);
+
+      // Register animation entry for this mesh (starts fully hidden)
+      iconAnims.push({ mesh: mesh, targetPos: targetPos.clone(), progress: 0, direction: 0 });
 
       // ── Load texture: img/{key}.png → img/No_Texture.webp ──
       texLoader.load(
@@ -284,11 +508,11 @@ var Scene = (function () {
       );
 
       // ── Try to load custom GLB mesh ───────────────────────
-      loadMesh(proj, mesh, mat, pos);
+      loadMesh(proj, mesh, mat, targetPos, idx);
     });
   }
 
-  function loadMesh(proj, defaultMesh, defaultMat, pos) {
+  function loadMesh(proj, defaultMesh, defaultMat, targetPos, projIdx) {
     if (typeof THREE.GLTFLoader === 'undefined') return;
     var loader = new THREE.GLTFLoader();
     loader.load(
@@ -302,24 +526,38 @@ var Scene = (function () {
         var bbox = new THREE.Box3().setFromObject(loaded);
         var size = bbox.getSize(new THREE.Vector3());
         var maxDim = Math.max(size.x, size.y, size.z);
-        var scale = 0.88 / maxDim;  // Scale to match default box width
+        var scale = 0.88 / maxDim;
         loaded.scale.multiplyScalar(scale);
         
-        // Recenter after scaling
+        // Recalculate bounding box after scaling
         bbox.setFromObject(loaded);
         var center = bbox.getCenter(new THREE.Vector3());
-        loaded.position.sub(center);
         
-        loaded.position.copy(pos);
-        loaded.rotation.x = 10 * (Math.PI / 180);  // 10 degrees initial tilt
-        loaded.userData.rotSpeed = defaultMesh.userData.rotSpeed;
-        loaded.userData.rotSpeedX = defaultMesh.userData.rotSpeedX;
-        loaded.userData.rotSpeedZ = defaultMesh.userData.rotSpeedZ;
-        loaded.userData.projKey  = proj.key;
-        projectMeshGroup.add(loaded);
-        // Swap reference in array
-        var idx = projectMeshes.indexOf(defaultMesh);
-        if (idx !== -1) projectMeshes[idx] = loaded;
+        // Create wrapper group for rotation around geometric center
+        var wrapper = new THREE.Group();
+        // Start at origin (hidden position behind monitor)
+        wrapper.position.copy(ICON_ORIGIN);
+        wrapper.rotation.x = 10 * (Math.PI / 180);
+        
+        // Offset loaded mesh so its geometric center is at wrapper's local origin
+        loaded.position.copy(center).negate();
+        
+        wrapper.add(loaded);
+        wrapper.userData.rotSpeed = defaultMesh.userData.rotSpeed;
+        wrapper.userData.rotSpeedX = defaultMesh.userData.rotSpeedX;
+        wrapper.userData.rotSpeedZ = defaultMesh.userData.rotSpeedZ;
+        wrapper.userData.projKey  = proj.key;
+        
+        projectMeshGroup.add(wrapper);
+
+        // Swap reference in projectMeshes array
+        var meshIdx = projectMeshes.indexOf(defaultMesh);
+        if (meshIdx !== -1) projectMeshes[meshIdx] = wrapper;
+
+        // Swap reference in iconAnims array (match by projIdx)
+        if (iconAnims[projIdx]) {
+          iconAnims[projIdx].mesh = wrapper;
+        }
       },
       undefined,
       function () { /* silently keep default box */ }
@@ -399,25 +637,87 @@ var Scene = (function () {
     });
   }
 
+  // ── EASING ────────────────────────────────────────────────
+  function easeOutBack(t) {
+    // Slight overshoot spring feel on arrival
+    var c1 = 1.70158;
+    var c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+
+  function easeInBack(t) {
+    var c1 = 1.70158;
+    var c3 = c1 + 1;
+    return c3 * t * t * t - c1 * t * t;
+  }
+
+  // ── ICON ANIMATION STEP ───────────────────────────────────
+  function stepIconAnims() {
+    var allDone = true;
+    iconAnims.forEach(function (anim) {
+      if (anim.direction === 0) return;
+      allDone = false;
+
+      anim.progress += ICON_ANIM_SPEED;
+      if (anim.progress >= 1) {
+        anim.progress = 1;
+        anim.direction = 0;   // done
+      }
+
+      var t = anim.direction === 1
+        ? easeOutBack(anim.progress)    // opening: fly out with bounce
+        : easeInBack(anim.progress);    // closing: suck back in
+
+      if (anim.direction === 1) {
+        // Fly OUT: origin → target
+        anim.mesh.position.lerpVectors(ICON_ORIGIN, anim.targetPos, t);
+      } else {
+        // Fly IN (reverse): target → origin
+        anim.mesh.position.lerpVectors(anim.targetPos, ICON_ORIGIN, t);
+      }
+    });
+  }
+
+  // ── CAMERA ANIMATION STEP ─────────────────────────────────
+  function stepCameraAnim() {
+    if (!camAnim.active) return;
+    camAnim.progress += 0.04;
+    if (camAnim.progress >= 1) {
+      camAnim.progress = 1;
+      camAnim.active = false;
+    }
+    var t = 1 - Math.pow(1 - camAnim.progress, 3); // ease-out cubic
+    camera.position.lerpVectors(camAnim.fromPos, camAnim.toPos, t);
+    var targetNow = new THREE.Vector3().lerpVectors(camAnim.fromTarget, camAnim.toTarget, t);
+    camera.lookAt(targetNow);
+    camera.updateProjectionMatrix();
+  }
+
   // ── RENDER LOOP ───────────────────────────────────────────
   var jitterCnt = 0;
   function renderLoop() {
     requestAnimationFrame(renderLoop);
     var t = Date.now() * 0.001;
 
-    // LED pulse (monitor is otherwise static — no Y float)
+    // LED pulse
     monitorGroup.children.forEach(function (m) {
       if (!m.userData.isLed) return;
       var v = 0.6 + 0.4 * Math.sin(t * 2.0);
       m.material.color.setRGB(0, v, v * 0.12);
     });
 
-    // Rotate project icon meshes on all axes with random speeds/directions
+    // Rotate project icon meshes
     projectMeshes.forEach(function (mesh) {
       mesh.rotation.x += mesh.userData.rotSpeedX || ((Math.random() > 0.5 ? 1 : -1) * 0.004);
       mesh.rotation.y += mesh.userData.rotSpeed || (Math.random() > 0.5 ? 0.008 : -0.008);
       mesh.rotation.z += mesh.userData.rotSpeedZ || ((Math.random() > 0.5 ? 1 : -1) * 0.004);
     });
+
+    // Animate icon positions (fly in / fly out)
+    stepIconAnims();
+
+    // Animate camera transitions
+    stepCameraAnim();
 
     jitterCnt++;
     if (jitterCnt % 8 === 0) applyJitter();
@@ -427,8 +727,42 @@ var Scene = (function () {
     updateVoidIcons();
   }
 
+  // ── PUBLIC: show/hide project icon meshes with fly-in animation ──
   function showProjectMeshes(on) {
-    projectMeshGroup.visible = on;
+    if (on) {
+      // Make group visible first, then kick off fly-out animations with stagger
+      projectMeshGroup.visible = true;
+      iconAnims.forEach(function (anim, idx) {
+        anim.direction = 1;   // open / fly out
+        anim.progress  = 0;
+        // Stagger each icon by a small delay based on index
+        // We simulate delay by starting progress slightly negative
+        anim.progress = -idx * 0.08;
+      });
+    } else {
+      // Reverse: fly everything back behind the monitor
+      iconAnims.forEach(function (anim, idx) {
+        anim.direction = -1;  // close / suck back in
+        anim.progress  = 0;
+        // Stagger in reverse order so inner icons go first
+        var reverseIdx = iconAnims.length - 1 - idx;
+        anim.progress = -reverseIdx * 0.06;
+      });
+
+      // Hide group after longest possible animation completes
+      var maxDelay = iconAnims.length * 0.08 + 1.0 / ICON_ANIM_SPEED;
+      var hideAfterMs = (maxDelay / 60) * 1000 + 400;
+      setTimeout(function () {
+        // Only hide if we're still in "closed" state (direction finished at -1)
+        var stillClosing = iconAnims.some(function (a) { return a.direction !== 0 || a.progress > 0; });
+        if (!stillClosing) projectMeshGroup.visible = false;
+        // Brute-force: reset all to origin position
+        iconAnims.forEach(function (anim) {
+          if (anim.direction === 0) anim.mesh.position.copy(ICON_ORIGIN);
+        });
+        projectMeshGroup.visible = false;
+      }, hideAfterMs);
+    }
   }
 
   return { init: init, screenRect: screenRect, showProjectMeshes: showProjectMeshes };
