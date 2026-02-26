@@ -92,7 +92,7 @@ var Scene = (function () {
     updateOverlay();
 
     requestAnimationFrame(renderLoop);
-    initScreenCornerDebug();  // Add this at end of init()
+    // initScreenCornerDebug();  // Add this at end of init()
     // initOverheadLightDebug();   // Uncomment to enable overhead light debug
   }
 

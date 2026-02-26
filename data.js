@@ -30,7 +30,7 @@ const SITE_DATA = {
 	},
 
 	contact: {
-		email: "lukasjoygames@gmail.com",
+		email: "designsbylukas@gmail.com",
 		links: [
 			{ label: "itch.io", icon: "🎮", url: "https://lukasjoy.itch.io", display: "lukasjoy.itch.io" },
 			{ label: "YouTube", icon: "▶", url: "https://www.youtube.com/@LukasJoyDev", display: "@lukasjoy" },
