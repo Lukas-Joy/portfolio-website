@@ -22,9 +22,9 @@ const SITE_DATA = {
 
 	about: {
 		paragraphs: [
-			"Hi. I'm Lukas Joy, a designer and game developer exploring digital space, 3D environments, and authored systems.",
-			"My work blends PSX aesthetics, low-poly 3D, and interactive experiences that play with perception and interface.",
-			"I enjoy building experimental games, retro-inspired interfaces, and interactive identities that push design.",
+			"Hi. I'm Lukas Joy, a designer and game developer.",
+			"My work blends PSX aesthetics, low-poly 3D, and interactive experiences.",
+			"I enjoy building experimental games, retro-inspired interfaces, and interactive objects.",
 		],
 		skills: ["GAME DESIGN", "INDUSTRIAL DESIGN", "3D", "PSX AESTHETIC", "GODOT", "UNREAL", "INTERACTIVE DESIGN"],
 	},
