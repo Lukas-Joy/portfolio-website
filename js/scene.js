@@ -12,6 +12,18 @@ var Scene = (function () {
   var projectMeshGroup;    // group holding all 3D project icons
   var projectMeshes = [];  // [{mesh, projKey, rotSpeed}]
   var overheadLight;       // overhead directional light for debug control
+  var powerLED;            // power LED mesh for debug control
+  var ledConfig = {        // LED debug parameters
+    posX: 1.2,
+    posY: -1.3,
+    posZ: 1.2,
+    radius: 0.025,
+    colorR: 0.22,
+    colorG: 1.0,
+    colorB: 0.35,
+    blinkSpeed: 3.5,
+    blinkIntensity: 1
+  };
 
   // Screen face corners in local monitor space
   var SCREEN_W   = 1.65;
@@ -92,8 +104,9 @@ var Scene = (function () {
     updateOverlay();
 
     requestAnimationFrame(renderLoop);
-    // initScreenCornerDebug();  // Add this at end of init()
+    // initScreenCornerDebug();  // Uncomment to enable screen corner debug
     // initOverheadLightDebug();   // Uncomment to enable overhead light debug
+    // initLEDDebug();             // Uncomment to enable LED positioning debug
   }
 
     // ── DEBUG: VISUAL SCREEN CORNER HELPER ─────────────────────
@@ -363,6 +376,193 @@ var Scene = (function () {
     updateUI();
   }
 
+  // ── DEBUG: LED POSITION & BLINK CONTROL ──────────────────
+  function initLEDDebug() {
+    var debugContainer = document.createElement('div');
+    debugContainer.id = 'led-debug';
+    debugContainer.style.cssText = [
+      'position:fixed;bottom:10px;left:10px',
+      'background:rgba(0,0,0,0.92)',
+      'color:#0f0',
+      'font-family:monospace',
+      'font-size:11px',
+      'padding:10px',
+      'z-index:9999',
+      'width:280px',
+      'border:1px solid #0f0',
+      'border-radius:4px',
+      'user-select:none',
+      'max-height:400px',
+      'overflow-y:auto',
+    ].join(';');
+    document.body.appendChild(debugContainer);
+
+    // Enlarge LED for debug visibility
+    var originalRadius = ledConfig.radius;
+    ledConfig.radius = 0.2;  // Make it much larger so you can see it
+    if (powerLED) {
+      powerLED.geometry = new THREE.SphereGeometry(ledConfig.radius, 16, 16);
+      powerLED.material = new THREE.MeshBasicMaterial({ 
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        toneMapped: false
+      });
+    }
+
+    // Add a large wireframe helper sphere around the LED
+    var helperGeo = new THREE.SphereGeometry(0.5, 32, 32);
+    var helperMat = new THREE.MeshBasicMaterial({ 
+      color: 0xff00ff, 
+      wireframe: true,
+      transparent: true,
+      opacity: 0.6,
+      toneMapped: false
+    });
+    var ledHelper = new THREE.Mesh(helperGeo, helperMat);
+    ledHelper.position.copy(powerLED.position);
+    threeScene.add(ledHelper);
+    
+    // Store helper for global access
+    window._ledHelper = ledHelper;
+    
+    console.log('LED Debug activated. LED position:', powerLED.position);
+    console.log('LED visibility:', powerLED.visible);
+    
+    // Store camera/scene for debug zoom function
+    window._dbgCamera = camera;
+    window._dbgScene = threeScene;
+
+    function updateUI() {
+      var html = '';
+      
+      // ── Title ──
+      html += '<div style="margin-bottom:6px;">';
+      html += '<strong style="font-size:12px;">💡 Power LED Debug</strong>';
+      html += '</div>';
+
+      // ── LED World Position ──
+      html += '<div style="background:#1a1a1a;padding:6px;margin-bottom:8px;border:1px solid #0a0;border-radius:2px;font-size:9px;">';
+      html += '<div style="color:#aaa;">World Position:</div>';
+      if (powerLED) {
+        html += '<div style="color:#0f0;">X: ' + powerLED.position.x.toFixed(3) + ' Y: ' + powerLED.position.y.toFixed(3) + ' Z: ' + powerLED.position.z.toFixed(3) + '</div>';
+      }
+      html += '</div>';
+
+      // ── Zoom to LED button ──
+      html += '<button onclick="window._ledDebugZoom()" style="width:100%;padding:6px;margin-bottom:8px;background:#0a0;color:#000;border:none;border-radius:3px;cursor:pointer;font-family:monospace;font-weight:bold;font-size:10px;">ZOOM TO LED</button>';
+
+      // ── Position ──
+      html += '<div style="color:#0aa;font-size:10px;margin-bottom:4px;">▸ Position</div>';
+      ['posX','posY','posZ'].forEach(function (key) {
+        var label = key.replace('pos','');
+        html += '<label style="display:block;margin-bottom:4px;">' + label + ': ';
+        html += '<span id="led-val-' + key + '" style="color:#fff;">' + ledConfig[key].toFixed(3) + '</span><br>';
+        html += '<input type="range" min="-5" max="5" step="0.05" value="' + ledConfig[key] + '"';
+        html += ' oninput="window._ledDebugChange(\'' + key + '\',this.value)"';
+        html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+        html += '</label>';
+      });
+
+      // ── Size ──
+      html += '<div style="color:#0aa;font-size:10px;margin:6px 0 4px;">▸ Size</div>';
+      html += '<label style="display:block;margin-bottom:4px;">Radius: ';
+      html += '<span id="led-val-radius" style="color:#fff;">' + ledConfig.radius.toFixed(3) + '</span><br>';
+      html += '<input type="range" min="0.01" max="0.2" step="0.005" value="' + ledConfig.radius + '"';
+      html += ' oninput="window._ledDebugChange(\'radius\',this.value)"';
+      html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+      html += '</label>';
+
+      // ── Blink ──
+      html += '<div style="color:#0aa;font-size:10px;margin:6px 0 4px;">▸ Blink</div>';
+      html += '<label style="display:block;margin-bottom:4px;">Speed: ';
+      html += '<span id="led-val-blinkSpeed" style="color:#fff;">' + ledConfig.blinkSpeed.toFixed(2) + '</span><br>';
+      html += '<input type="range" min="0.5" max="10" step="0.5" value="' + ledConfig.blinkSpeed + '"';
+      html += ' oninput="window._ledDebugChange(\'blinkSpeed\',this.value)"';
+      html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+      html += '</label>';
+      html += '<label style="display:block;margin-bottom:4px;">Intensity: ';
+      html += '<span id="led-val-blinkIntensity" style="color:#fff;">' + ledConfig.blinkIntensity.toFixed(2) + '</span><br>';
+      html += '<input type="range" min="0" max="1" step="0.05" value="' + ledConfig.blinkIntensity + '"';
+      html += ' oninput="window._ledDebugChange(\'blinkIntensity\',this.value)"';
+      html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+      html += '</label>';
+
+      // ── Color ──
+      html += '<div style="color:#0aa;font-size:10px;margin:6px 0 4px;">▸ Color (RGB)</div>';
+      ['colorR','colorG','colorB'].forEach(function (key) {
+        var label = key.replace('color','');
+        html += '<label style="display:block;margin-bottom:4px;">' + label + ': ';
+        html += '<span id="led-val-' + key + '" style="color:#fff;">' + ledConfig[key].toFixed(2) + '</span><br>';
+        html += '<input type="range" min="0" max="1" step="0.05" value="' + ledConfig[key] + '"';
+        html += ' oninput="window._ledDebugChange(\'' + key + '\',this.value)"';
+        html += ' style="width:100%;accent-color:#0f0;cursor:pointer;"/>';
+        html += '</label>';
+      });
+
+      // ── Copy button ──
+      html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #333;">';
+      html += '<button onclick="window._ledDebugCopy()" style="width:100%;padding:6px;background:#0f0;color:#000;border:none;border-radius:3px;cursor:pointer;font-family:monospace;font-weight:bold;">COPY CONFIG</button>';
+      html += '</div>';
+
+      debugContainer.innerHTML = html;
+    }
+
+    // ── Global handlers ──
+    window._ledDebugZoom = function () {
+      if (!powerLED || !window._dbgCamera) return;
+      // Zoom camera to look at LED from a distance
+      var distance = 2;
+      var ledWorldPos = powerLED.position.clone();
+      window._dbgCamera.position.set(
+        ledWorldPos.x + distance * 0.5,
+        ledWorldPos.y + distance * 0.5,
+        ledWorldPos.z + distance
+      );
+      window._dbgCamera.lookAt(ledWorldPos);
+      activeCameraView = 'custom';
+      console.log('Zoomed to LED at:', ledWorldPos);
+    };
+
+    window._ledDebugChange = function (key, value) {
+      var v = parseFloat(value);
+      ledConfig[key] = isNaN(v) ? value : v;
+
+      // Update LED if it exists
+      if (powerLED) {
+        if (key === 'posX') {
+          powerLED.position.x = v;
+          if (window._ledHelper) window._ledHelper.position.x = v;
+        } else if (key === 'posY') {
+          powerLED.position.y = v;
+          if (window._ledHelper) window._ledHelper.position.y = v;
+        } else if (key === 'posZ') {
+          powerLED.position.z = v;
+          if (window._ledHelper) window._ledHelper.position.z = v;
+        } else if (key === 'radius') {
+          powerLED.geometry = new THREE.SphereGeometry(v, 16, 16);
+        }
+      }
+
+      // Update value display
+      var valEl = document.getElementById('led-val-' + key);
+      if (valEl) valEl.textContent = v.toFixed(key.indexOf('Int') !== -1 ? 2 : 3);
+
+      updateUI();
+    };
+
+    window._ledDebugCopy = function () {
+      var configStr = 'ledConfig: {\n';
+      Object.keys(ledConfig).forEach(function (key) {
+        configStr += '  ' + key + ': ' + ledConfig[key] + ',\n';
+      });
+      configStr += '}';
+      console.log(configStr);
+      alert('LED config copied to console:\n' + configStr);
+    };
+
+    updateUI();
+  }
+
   // ── MONITOR ───────────────────────────────────────────────
   function buildMonitor() {
     monitorGroup = new THREE.Group();
@@ -391,13 +591,14 @@ var Scene = (function () {
     );
 
     // Power LED (always add)
-    var led = new THREE.Mesh(
-      new THREE.SphereGeometry(0.034, 4, 4),
+    powerLED = new THREE.Mesh(
+      new THREE.SphereGeometry(ledConfig.radius, 4, 4),
       new THREE.MeshBasicMaterial({ color: 0x39ff5a })
     );
-    led.position.set(1.7, -1.29, -1.05);
-    led.userData.isLed = true;
-    monitorGroup.add(led);
+    powerLED.position.set(ledConfig.posX, ledConfig.posY, ledConfig.posZ);
+    powerLED.userData.isLed = true;
+    // Add directly to scene in world space (not to monitorGroup)
+    threeScene.add(powerLED);
 
     // Don't apply rotation to group — screen corners stay in unrotated space
     threeScene.add(monitorGroup);
@@ -692,11 +893,13 @@ var Scene = (function () {
     var t = Date.now() * 0.001;
 
     // LED pulse
-    monitorGroup.children.forEach(function (m) {
-      if (!m.userData.isLed) return;
-      var v = 0.6 + 0.4 * Math.sin(t * 2.0);
-      m.material.color.setRGB(0, v, v * 0.12);
-    });
+    if (powerLED) {
+      var intensity = 0.5 + ledConfig.blinkIntensity * Math.sin(t * ledConfig.blinkSpeed);
+      var r = ledConfig.colorR * intensity;
+      var g = ledConfig.colorG * intensity;
+      var b = ledConfig.colorB * intensity;
+      powerLED.material.color.setRGB(r, g, b);
+    }
 
     // Rotate project icon meshes
     projectMeshes.forEach(function (mesh) {
@@ -757,6 +960,6 @@ var Scene = (function () {
     }
   }
 
-  return { init: init, screenRect: screenRect, showProjectMeshes: showProjectMeshes };
+  return { init: init, screenRect: screenRect, showProjectMeshes: showProjectMeshes, initLEDDebug: initLEDDebug };
 
 }());
