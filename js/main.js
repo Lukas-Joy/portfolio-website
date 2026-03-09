@@ -8,7 +8,6 @@
 
   function start() {
     Scene.init();
-    PSXUI.init();   // PSX shader pipeline for the HTML UI layer
     runBoot(revealDesktop);
   }
 
