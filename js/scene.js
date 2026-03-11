@@ -14,6 +14,13 @@ var Scene = (function () {
   var screenTexture;          // CanvasTexture from canvas
   var projectMeshGroup;    // group holding all 3D project icons
   var projectMeshes = [];  // [{mesh, projKey, rotSpeed}]
+
+  // PSX post-processing
+  var psxRenderTarget;      // WebGLRenderTarget — scene renders here first
+  var psxPostScene;         // fullscreen quad scene
+  var psxPostCamera;        // orthographic camera for fullscreen quad
+  var psxPostMaterial;      // ShaderMaterial with PSX post-fx
+  var PSX_RESOLUTION = { w: 320, h: 240 };  // native PSX resolution to snap to
   var overheadLight;       // overhead directional light for debug control
   var powerLED;            // power LED mesh for debug control
   var ledConfig = {        // LED debug parameters
@@ -95,6 +102,7 @@ var Scene = (function () {
     overheadLight.position.set(3.30, 4.20, 5.27);
     threeScene.add(overheadLight);
 
+    buildPostFX();         // PSX post-processing pipeline
     buildScreenCanvas();  // Create canvas for rendering UI to texture
     buildMonitor();
     buildStarfield();
@@ -744,7 +752,7 @@ var Scene = (function () {
 
       // Default geometry: low-poly card/tile
       var geo = new THREE.BoxGeometry(0.88, 0.88, 0.10, 2, 2, 1);
-      var mat = new THREE.MeshLambertMaterial({ color: 0x1a2e1d });
+      var mat = buildPSXMaterial(null);  // PSX shader — texture loaded async below
 
       var mesh = new THREE.Mesh(geo, mat);
       // Start at the hidden/origin position behind the monitor
@@ -769,11 +777,20 @@ var Scene = (function () {
       // ── Load texture: img/{key}.png → img/No_Texture.webp ──
       texLoader.load(
         'img/' + proj.key + '.png',
-        function (tex) { mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; },
+        function (tex) {
+          tex.minFilter = THREE.NearestFilter;
+          tex.magFilter = THREE.NearestFilter;
+          mat.uniforms.map.value       = tex;
+          mat.uniforms.hasTexture.value = 1.0;
+        },
         undefined,
         function () {
-          texLoader.load('img/No_Texture.webp',
-            function (tex) { mat.map = tex; mat.needsUpdate = true; });
+          texLoader.load('img/No_Texture.webp', function (tex) {
+            tex.minFilter = THREE.NearestFilter;
+            tex.magFilter = THREE.NearestFilter;
+            mat.uniforms.map.value       = tex;
+            mat.uniforms.hasTexture.value = 1.0;
+          });
         }
       );
 
@@ -839,6 +856,12 @@ var Scene = (function () {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Keep post-fx resolution fixed at PSX spec (upscaling is the point)
+    // but update the post material's resolution uniform to match the render target
+    if (psxPostMaterial) {
+      psxPostMaterial.uniforms.resolution.value.set(PSX_RESOLUTION.w, PSX_RESOLUTION.h);
+    }
   }
 
   // ── SCREEN OVERLAY TRACKING ───────────────────────────────
@@ -1005,9 +1028,196 @@ var Scene = (function () {
     texUpdateCnt++;
     if (texUpdateCnt % 3 === 0) updateScreenTexture();
 
+    // ── Two-pass PSX render ───────────────────────────────
+    // Pass 1: render 3D scene into the low-res PSX render target
+    renderer.setRenderTarget(psxRenderTarget);
     renderer.render(threeScene, camera);
+    // Pass 2: upscale through PSX post-fx shader (dither, colour depth, CRT)
+    renderer.setRenderTarget(null);
+    renderer.render(psxPostScene, psxPostCamera);
+
     updateOverlay();
     updateVoidIcons();
+  }
+
+  // ── PSX POST-PROCESSING ───────────────────────────────────
+  function buildPostFX() {
+    // Render scene to a low-res target for the PSX pixelation look
+    psxRenderTarget = new THREE.WebGLRenderTarget(
+      PSX_RESOLUTION.w, PSX_RESOLUTION.h,
+      {
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        format: THREE.RGBAFormat,
+      }
+    );
+
+    // Fullscreen quad for the post-process pass
+    psxPostCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    psxPostScene  = new THREE.Scene();
+
+    psxPostMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tScene:      { value: psxRenderTarget.texture },
+        resolution:  { value: new THREE.Vector2(PSX_RESOLUTION.w, PSX_RESOLUTION.h) },
+        colorDepth:  { value: 31.0 },    // 5-bit per channel (PS1 15-bit colour)
+        ditherStr:   { value: 0.01 },    // strength of Bayer dither
+        crtWarp:     { value: 0.05 },   // barrel-distortion amount
+        scanlineStr: { value: 0.10 },    // darkness of scanline dip
+        vignette:    { value: 0.38 },    // edge darkening
+      },
+
+      vertexShader: [
+        'varying vec2 vUv;',
+        'void main() {',
+        '  vUv = uv;',
+        '  gl_Position = vec4(position, 1.0);',
+        '}',
+      ].join('\n'),
+
+      fragmentShader: [
+        'uniform sampler2D tScene;',
+        'uniform vec2  resolution;',
+        'uniform float colorDepth;',
+        'uniform float ditherStr;',
+        'uniform float crtWarp;',
+        'uniform float scanlineStr;',
+        'uniform float vignette;',
+        'varying vec2 vUv;',
+
+        // 4×4 Bayer ordered-dither matrix (values 0-15, normalised to 0-1)
+        'float bayer(vec2 p) {',
+        '  int x = int(mod(p.x, 4.0));',
+        '  int y = int(mod(p.y, 4.0));',
+        '  int idx = y * 4 + x;',
+        '  float m[16];',
+        '  m[0]= 0.0;  m[1]= 8.0;  m[2]= 2.0;  m[3]=10.0;',
+        '  m[4]=12.0;  m[5]= 4.0;  m[6]=14.0;  m[7]= 6.0;',
+        '  m[8]= 3.0;  m[9]=11.0; m[10]= 1.0; m[11]= 9.0;',
+        '  m[12]=15.0; m[13]= 7.0; m[14]=13.0; m[15]= 5.0;',
+        '  return m[idx] / 16.0 - 0.5;',
+        '}',
+
+        // Barrel / CRT warp — bends the UV inward at edges
+        'vec2 crtUV(vec2 uv, float warp) {',
+        '  vec2 dc = uv - 0.5;',
+        '  dc *= 1.0 + warp * dot(dc, dc) * 4.0;',
+        '  return dc + 0.5;',
+        '}',
+
+        'void main() {',
+        // CRT warp
+        '  vec2 uv = crtUV(vUv, crtWarp);',
+
+        // Kill pixels outside warped screen (letterbox / black edges)
+        '  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {',
+        '    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);',
+        '    return;',
+        '  }',
+
+        '  vec4 col = texture2D(tScene, uv);',
+
+        // Ordered dithering — adds noise before quantising, breaks up gradient banding
+        '  vec2 screenPx = uv * resolution;',
+        '  float d = bayer(screenPx) * ditherStr;',
+        '  col.rgb += d;',
+
+        // 5-bit colour depth quantisation (PS1 15-bit colour)
+        '  col.rgb = floor(col.rgb * colorDepth + 0.5) / colorDepth;',
+
+        // Scanlines — darken every other output pixel row
+        '  float scanY = mod(gl_FragCoord.y, 2.0);',
+        '  col.rgb *= 1.0 - scanlineStr * step(1.0, scanY);',
+
+        // Vignette — darken edges
+        '  vec2 vig = vUv * (1.0 - vUv);',
+        '  float vigVal = pow(vig.x * vig.y * 15.0, vignette);',
+        '  col.rgb *= vigVal;',
+
+        '  gl_FragColor = vec4(col.rgb, 1.0);',
+        '}',
+      ].join('\n'),
+    });
+
+    var quad = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), psxPostMaterial);
+    psxPostScene.add(quad);
+  }
+
+  // ── PSX VERTEX + FRAGMENT MATERIAL (for 3-D objects) ─────
+  // Vertex snapping + affine (perspective-incorrect) UV mapping
+  function buildPSXMaterial(texture) {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        map:           { value: texture || null },
+        snapRes:       { value: 160.0 },   // lower = more jitter
+        hasTexture:    { value: texture ? 1.0 : 0.0 },
+        baseColor:     { value: new THREE.Color(0x1a2e1d) },
+        ambientLight:  { value: new THREE.Color(0x2a1e10) },
+        lightDir:      { value: new THREE.Vector3(0.6, 0.8, 0.5).normalize() },
+        lightColor:    { value: new THREE.Color(0xffffff) },
+        lightIntensity:{ value: 1.4 },
+      },
+
+      vertexShader: [
+        'uniform float snapRes;',
+        'varying vec2  vUv;',
+        'varying float vW;',
+        'varying vec3  vNormal;',
+
+        'void main() {',
+        '  vec4 pos = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+
+        // PSX vertex snapping — snap to low-res grid in clip space
+        '  vec2 snapped = floor(pos.xy / pos.w * snapRes + 0.5) / snapRes * pos.w;',
+        '  pos.xy = snapped;',
+
+        // Pass w for affine UV trick (pre-multiply by w)
+        '  vW  = pos.w;',
+        '  vUv = uv * pos.w;',
+
+        // Pass normal in view space for flat Gouraud-style lighting
+        '  vNormal = normalize(normalMatrix * normal);',
+
+        '  gl_Position = pos;',
+        '}',
+      ].join('\n'),
+
+      fragmentShader: [
+        'uniform sampler2D map;',
+        'uniform float     hasTexture;',
+        'uniform vec3      baseColor;',
+        'uniform vec3      ambientLight;',
+        'uniform vec3      lightDir;',
+        'uniform vec3      lightColor;',
+        'uniform float     lightIntensity;',
+
+        'varying vec2  vUv;',
+        'varying float vW;',
+        'varying vec3  vNormal;',
+
+        'void main() {',
+        // Affine UV — divide out the pre-multiplied w to get swimming PS1 UVs
+        '  vec2 affineUv = vUv / vW;',
+
+        '  vec4 texCol = hasTexture > 0.5',
+        '    ? texture2D(map, affineUv)',
+        '    : vec4(baseColor, 1.0);',
+
+        // Flat Lambert shading (no smoothing — mimics PS1 per-poly lighting)
+        '  vec3 N = normalize(vNormal);',
+        '  float diff = max(dot(N, lightDir), 0.0);',
+        '  vec3 lit = ambientLight + lightColor * diff * lightIntensity;',
+
+        // 5-bit colour per channel (clamp + quantise before write)
+        '  vec3 col = texCol.rgb * lit;',
+        '  col = floor(col * 31.0 + 0.5) / 31.0;',
+
+        '  gl_FragColor = vec4(col, texCol.a);',
+        '}',
+      ].join('\n'),
+
+      transparent: true,
+    });
   }
 
   // ── PUBLIC: show/hide project icon meshes with fly-in animation ──
@@ -1048,6 +1258,18 @@ var Scene = (function () {
     }
   }
 
-  return { init: init, screenRect: screenRect, showProjectMeshes: showProjectMeshes, initLEDDebug: initLEDDebug };
+  return {
+    init: init,
+    screenRect: screenRect,
+    showProjectMeshes: showProjectMeshes,
+    initLEDDebug: initLEDDebug,
+    // PSX shader uniform access (for potential debug controls)
+    psxUniforms: function() { return psxPostMaterial ? psxPostMaterial.uniforms : null; },
+    setPSXParam: function(key, val) {
+      if (psxPostMaterial && psxPostMaterial.uniforms[key]) {
+        psxPostMaterial.uniforms[key].value = val;
+      }
+    },
+  };
 
 }());
