@@ -163,6 +163,9 @@ var Desktop = (function () {
       var el  = document.createElement('div');
       el.className = 'void-icon';
       el.id        = 'void-icon-' + proj.key;
+      var hitCircle = document.createElement('div');
+      hitCircle.className = 'void-icon-hit';
+      el.appendChild(hitCircle);
       el.addEventListener('click', function () { ProjectApp.selectProject(proj.key); });
       layer.appendChild(el);
     });

@@ -127,6 +127,10 @@ var ProjectApp = (function () {
       img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;';
       wrap.appendChild(img);
     };
+    testImg.onerror = function () {
+      startCanvasPreview(key, proj, wrap);
+    };
+    testImg.src = 'gif/' + key + '.webp';
   }
 
   function startCanvasPreview(key, proj, wrap) {

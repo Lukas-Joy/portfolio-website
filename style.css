@@ -82,11 +82,17 @@ body {
 }
 
 /* ── VOID ICON LAYER ──────────────────────────────────────── */
-#void-layer { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+#void-layer { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
 .void-icon {
   position: absolute; pointer-events: all; display: none;
   flex-direction: column; align-items: center; cursor: pointer;
   transform: translate(-50%,-50%); user-select: none;
+}
+.void-icon-hit {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: all;
 }
 .vi-glyph {
   font-size: 26px; display: block; line-height: 1;
