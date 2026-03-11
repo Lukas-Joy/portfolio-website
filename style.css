@@ -104,6 +104,12 @@ body {
 }
 
 /* ── SCREEN OVERLAY ───────────────────────────────────────── */
+/*
+ * psx-ui.js injects a <style id="psx-hide-style"> that sets opacity:0
+ * on all UI layers.  It removes that rule inside the html2canvas clone
+ * so they render at full opacity for the capture.
+ * The PSX canvas sits on top at z-index:19999 and draws the shaded result.
+ */
 #screen-overlay {
   position: fixed;
   z-index: 10;
@@ -111,20 +117,7 @@ body {
   background: transparent;
   pointer-events: all;
 }
-/* CRT scanlines */
-#screen-overlay::before {
-  content: ''; position: absolute; inset: 0;
-  background: repeating-linear-gradient(
-    to bottom, transparent 0, transparent 2px,
-    rgba(0,0,0,.20) 2px, rgba(0,0,0,.20) 3px);
-  pointer-events: none; z-index: 9000;
-}
-/* CRT vignette */
-#screen-overlay::after {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%);
-  pointer-events: none; z-index: 9001;
-}
+/* Scanlines and vignette are handled entirely by the PSX shader */
 
 /* Subtle dot grid on screen */
 #desktop-grid {
