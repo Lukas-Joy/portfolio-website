@@ -20,13 +20,14 @@ var Scene = (function () {
   var psxPostScene;         // fullscreen quad scene
   var psxPostCamera;        // orthographic camera for fullscreen quad
   var psxPostMaterial;      // ShaderMaterial with PSX post-fx
-  var PSX_RESOLUTION = { w: 320, h: 240 };  // native PSX resolution to snap to
+  var PSX_RESOLUTION = { w: 480, h: 320 };  // native PSX resolution to snap to
   var overheadLight;       // overhead directional light for debug control
-  var powerLED;            // power LED mesh for debug control
-  var ledConfig = {        // LED debug parameters
-    posX: 1.2,
-    posY: -1.3,
-    posZ: 1.2,
+  var powerLED;            // green power LED mesh
+  var redLED;              // red blinking LED mesh
+  var ledConfig = {        // green LED debug parameters
+    posX: 0.94,
+    posY: -1.24,
+    posZ: 1.20,
     radius: 0.025,
     colorR: 0.22,
     colorG: 1.0,
@@ -34,22 +35,30 @@ var Scene = (function () {
     blinkSpeed: 3.5,
     blinkIntensity: 1
   };
+  var redLedConfig = {     // red LED debug parameters
+    posX: 0.09,
+    posY: 1.36,
+    posZ: 1.20,
+    radius: 0.025,
+    blinkSpeed: 6.0,
+    blinkIntensity: 1
+  };
 
   // ── DEBUG POSITIONING ────────────────────────────────────
   var debugMode = false;
   var debugConfig = {
     posX: 0,
-    posY: 0,
+    posY: 0.20,
     posZ: 0,
-    scaleX: 1.4,
-    scaleY: 1.4,
-    scaleZ: 1.4,
+    scaleX: 0.60,
+    scaleY: 0.60,
+    scaleZ: 0.60,
   };
 
   // Screen face corners in local monitor space
-  var SCREEN_W   = 1.95;
-  var SCREEN_H   = 0.65;
-  var SCREEN_Z   = 1;
+  var SCREEN_W   = 3.20;
+  var SCREEN_H   = 0.35;
+  var SCREEN_Z   = 1.00;
 
   var localCorners = [
     new THREE.Vector3(-SCREEN_W / 2,  SCREEN_H / 2, SCREEN_Z),
@@ -65,7 +74,7 @@ var Scene = (function () {
     screenZ: SCREEN_Z,
     padBottom: 345,      // extra px added to bottom (taskbar)
     offsetX: 0,
-    offsetY: -198,       // manual px offset up/down
+    offsetY: -152,       // manual px offset up/down
     uiScale: 1.0,       // CSS transform scale on the overlay
   };
 
@@ -127,6 +136,7 @@ var Scene = (function () {
     buildPostFX();         // PSX post-processing pipeline
     buildScreenCanvas();  // Create canvas for rendering UI to texture
     buildMonitor();
+    updateMonitorDebug();  // Apply initial debugConfig position/scale
     buildStarfield();
     buildVoidParticles();
     buildProjectIcons();   // 3D floating icons in grid
@@ -199,10 +209,15 @@ var Scene = (function () {
   function buildMonitor() {
     monitorGroup = new THREE.Group();
 
+    var monitorMeshFile = (SITE_DATA.assets && SITE_DATA.assets.monitorMeshFile)
+      ? SITE_DATA.assets.monitorMeshFile
+      : 'monitor.glb';
+    var monitorMeshPath = 'mesh/' + monitorMeshFile;
+
     // Load custom monitor mesh instead of building it
     var loader = new THREE.GLTFLoader();
     loader.load(
-      'mesh/monitor.glb',
+      monitorMeshPath,
       function (gltf) {
         var mesh = gltf.scene;
         mesh.scale.set(MONITOR_SCALE, MONITOR_SCALE, MONITOR_SCALE);
@@ -238,7 +253,7 @@ var Scene = (function () {
 
         // Log mesh names for debugging if no screen mesh was found
         if (screenMeshes.length === 0) {
-          console.warn('monitor.glb: no meshes matched screen name patterns. Mesh names:');
+          console.warn(monitorMeshFile + ': no meshes matched screen name patterns. Mesh names:');
           mesh.traverse(function (child) {
             if (child.isMesh) console.warn('  -', child.name);
           });
@@ -246,19 +261,26 @@ var Scene = (function () {
       },
       undefined,
       function (error) {
-        console.error('Failed to load monitor.glb:', error);
+        console.error('Failed to load ' + monitorMeshFile + ':', error);
       }
     );
 
-    // Power LED (always add)
+    // Power LED — green (always add)
     powerLED = new THREE.Mesh(
       new THREE.SphereGeometry(ledConfig.radius, 4, 4),
       new THREE.MeshBasicMaterial({ color: 0x39ff5a })
     );
     powerLED.position.set(ledConfig.posX, ledConfig.posY, ledConfig.posZ);
     powerLED.userData.isLed = true;
-    // Add directly to scene in world space (not to monitorGroup)
     threeScene.add(powerLED);
+
+    // Power LED — red blinking
+    redLED = new THREE.Mesh(
+      new THREE.SphereGeometry(redLedConfig.radius, 4, 4),
+      new THREE.MeshBasicMaterial({ color: 0xff2200 })
+    );
+    redLED.position.set(redLedConfig.posX, redLedConfig.posY, redLedConfig.posZ);
+    threeScene.add(redLED);
 
     // Don't apply rotation to group — screen corners stay in unrotated space
     threeScene.add(monitorGroup);
@@ -516,6 +538,21 @@ var Scene = (function () {
         '</div>' +
       '</div>' +
       '<div class="debug-divider"></div>' +
+      '<div class="debug-section-title">GREEN LED</div>' +
+      '<div class="debug-controls">' +
+        '<div class="debug-group"><label>X:</label><input type="number" id="debug-ledX" step="0.05" value="' + ledConfig.posX + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Y:</label><input type="number" id="debug-ledY" step="0.05" value="' + ledConfig.posY + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Z:</label><input type="number" id="debug-ledZ" step="0.05" value="' + ledConfig.posZ + '" class="debug-num"></div>' +
+      '</div>' +
+      '<div class="debug-divider"></div>' +
+      '<div class="debug-section-title">RED LED</div>' +
+      '<div class="debug-controls">' +
+        '<div class="debug-group"><label>X:</label><input type="number" id="debug-rledX" step="0.05" value="' + redLedConfig.posX + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Y:</label><input type="number" id="debug-rledY" step="0.05" value="' + redLedConfig.posY + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Z:</label><input type="number" id="debug-rledZ" step="0.05" value="' + redLedConfig.posZ + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Blink Speed:</label><input type="number" id="debug-rledSpeed" step="0.5" value="' + redLedConfig.blinkSpeed + '" class="debug-num"></div>' +
+      '</div>' +
+      '<div class="debug-divider"></div>' +
       '<div class="debug-section-title">OVERLAY (2D UI)</div>' +
       '<div class="debug-controls">' +
         '<div class="debug-group">' +
@@ -587,6 +624,32 @@ var Scene = (function () {
       });
     })();
 
+    // Green LED controls
+    ['ledX', 'ledY', 'ledZ'].forEach(function(key) {
+      var map = { ledX:'posX', ledY:'posY', ledZ:'posZ' };
+      var input = document.getElementById('debug-' + key);
+      input.addEventListener('input', function(e) {
+        ledConfig[map[key]] = parseFloat(e.target.value) || 0;
+        if (powerLED) powerLED.position.set(ledConfig.posX, ledConfig.posY, ledConfig.posZ);
+        updateDebugDisplay();
+      });
+    });
+
+    // Red LED controls
+    ['rledX', 'rledY', 'rledZ'].forEach(function(key) {
+      var map = { rledX:'posX', rledY:'posY', rledZ:'posZ' };
+      var input = document.getElementById('debug-' + key);
+      input.addEventListener('input', function(e) {
+        redLedConfig[map[key]] = parseFloat(e.target.value) || 0;
+        if (redLED) redLED.position.set(redLedConfig.posX, redLedConfig.posY, redLedConfig.posZ);
+        updateDebugDisplay();
+      });
+    });
+    document.getElementById('debug-rledSpeed').addEventListener('input', function(e) {
+      redLedConfig.blinkSpeed = parseFloat(e.target.value) || 1;
+      updateDebugDisplay();
+    });
+
     document.getElementById('debug-copy-btn').addEventListener('click', copyDebugSettings);
     updateDebugDisplay();
   }
@@ -619,7 +682,9 @@ var Scene = (function () {
         'monitorGroup.position: (' + debugConfig.posX.toFixed(2) + ', ' + debugConfig.posY.toFixed(2) + ', ' + debugConfig.posZ.toFixed(2) + ')\n' +
         'monitorGroup.scale: (' + debugConfig.scaleX.toFixed(2) + ', ' + debugConfig.scaleY.toFixed(2) + ', ' + debugConfig.scaleZ.toFixed(2) + ')\n' +
         'SCREEN: W=' + overlayConfig.screenW.toFixed(2) + ' H=' + overlayConfig.screenH.toFixed(2) + ' Z=' + overlayConfig.screenZ.toFixed(2) + '\n' +
-        'Overlay: pad=' + overlayConfig.padBottom + ' offY=' + overlayConfig.offsetY + ' scale=' + overlayConfig.uiScale.toFixed(2);
+        'Overlay: pad=' + overlayConfig.padBottom + ' offY=' + overlayConfig.offsetY + ' scale=' + overlayConfig.uiScale.toFixed(2) + '\n' +
+        'Green LED: (' + ledConfig.posX.toFixed(2) + ', ' + ledConfig.posY.toFixed(2) + ', ' + ledConfig.posZ.toFixed(2) + ')\n' +
+        'Red LED: (' + redLedConfig.posX.toFixed(2) + ', ' + redLedConfig.posY.toFixed(2) + ', ' + redLedConfig.posZ.toFixed(2) + ')  speed=' + redLedConfig.blinkSpeed.toFixed(1);
     }
   }
 
@@ -634,7 +699,11 @@ var Scene = (function () {
       'var SCREEN_H = ' + overlayConfig.screenH.toFixed(2) + ';\n' +
       'var SCREEN_Z = ' + overlayConfig.screenZ.toFixed(2) + ';\n' +
       '// Overlay offsets\n' +
-      'padBottom: ' + overlayConfig.padBottom + ', offsetY: ' + overlayConfig.offsetY + ', uiScale: ' + overlayConfig.uiScale.toFixed(2) + ';';
+      'padBottom: ' + overlayConfig.padBottom + ', offsetY: ' + overlayConfig.offsetY + ', uiScale: ' + overlayConfig.uiScale.toFixed(2) + ';\n' +
+      '// Green LED\n' +
+      'ledConfig: { posX:' + ledConfig.posX.toFixed(2) + ', posY:' + ledConfig.posY.toFixed(2) + ', posZ:' + ledConfig.posZ.toFixed(2) + ' }\n' +
+      '// Red LED\n' +
+      'redLedConfig: { posX:' + redLedConfig.posX.toFixed(2) + ', posY:' + redLedConfig.posY.toFixed(2) + ', posZ:' + redLedConfig.posZ.toFixed(2) + ', blinkSpeed:' + redLedConfig.blinkSpeed.toFixed(1) + ' }';
     
     navigator.clipboard.writeText(settings).then(function() {
       if (typeof Desktop !== 'undefined' && Desktop.toast) {
@@ -767,13 +836,20 @@ var Scene = (function () {
     requestAnimationFrame(renderLoop);
     var t = Date.now() * 0.001;
 
-    // LED pulse
+    // Green LED pulse
     if (powerLED) {
       var intensity = 0.5 + ledConfig.blinkIntensity * Math.sin(t * ledConfig.blinkSpeed);
       var r = ledConfig.colorR * intensity;
       var g = ledConfig.colorG * intensity;
       var b = ledConfig.colorB * intensity;
       powerLED.material.color.setRGB(r, g, b);
+    }
+
+    // Red LED blink (sharp on/off)
+    if (redLED) {
+      var redOn = Math.sin(t * redLedConfig.blinkSpeed) > 0;
+      var redI  = redOn ? redLedConfig.blinkIntensity : 0.04;
+      redLED.material.color.setRGB(redI, 0, 0);
     }
 
     // Rotate project icon meshes

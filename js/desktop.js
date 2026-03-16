@@ -9,14 +9,17 @@
 var Desktop = (function () {
 
   var ICONS = [
-    { id:'ic-projects', file:'project.exe', emoji:'📁', imgKey:'icon-projects', x:10, y:10,  action:'app:project' },
-    { id:'ic-about',    file:'about.html',  emoji:'📄', imgKey:'icon-about',    x:10, y:90,  action:'win:about'   },
-    { id:'ic-contact',  file:'contact.txt', emoji:'📬', imgKey:'icon-contact',  x:10, y:170, action:'win:contact' },
-    { id:'ic-cv',       file:'CV.pdf',      emoji:'📋', imgKey:'icon-cv',       x:10, y:250, action:'win:cv'      },
+    { id:'ic-projects', file:'project.exe', imgKey:'icon-projects', x:250, y:96,  action:'app:project' },
+    { id:'ic-about',    file:'about.html', imgKey:'icon-about',    x:97,  y:4,   action:'win:about'   },
+    { id:'ic-contact',  file:'contact.txt', imgKey:'icon-contact',  x:366, y:226, action:'win:contact' },
+    { id:'ic-cv',       file:'CV.pdf', imgKey:'icon-cv',       x:34,  y:211, action:'win:cv'      },
   ];
 
   var dragging = null, dragOffX = 0, dragOffY = 0;
   var iconStartX = 0, iconStartY = 0, didMove = false;
+
+  // ── ICON DEBUG ───────────────────────────────────────────
+  var iconDebugVisible = false;
 
   // ── SEEDED RANDOM ────────────────────────────────────────
   function seededRandom(seed) {
@@ -30,6 +33,7 @@ var Desktop = (function () {
     buildVoidIcons();
     tick();
     setInterval(tick, 15000);
+    buildIconDebugPanel();
   }
 
   // ── DESKTOP ICONS ─────────────────────────────────────────
@@ -43,15 +47,8 @@ var Desktop = (function () {
       var el = document.createElement('div');
       el.className = 'desk-icon';
       el.id        = cfg.id;
-      // Scattered positions using seeded random
-      var tb = document.getElementById('taskbar');
-      var tbH = tb ? tb.offsetHeight : 0;
-      var maxX = deskRect.width - iconW - 10;
-      var maxY = deskRect.height - iconH - tbH - 6;
-      var posX = 8 + seededRandom(idx * 137.53) * Math.min(maxX, 180);
-      var posY = 8 + seededRandom(idx * 349.71) * maxY * 0.85;
-      el.style.left = posX + 'px';
-      el.style.top  = Math.min(posY, maxY) + 'px';
+      el.style.left = cfg.x + 'px';
+      el.style.top  = cfg.y + 'px';
 
       // Try custom image, fall back to No_Texture, then emoji
       var imgEl = new Image();
@@ -133,9 +130,10 @@ var Desktop = (function () {
     var ny = Math.max(0, Math.min(e.clientY - dRect.top  - dragOffY, desktop.clientHeight - iH - tbH - 6));
     dragging.style.left = nx + 'px';
     dragging.style.top  = ny + 'px';
+    updateIconDebugPanel();
   }
 
-  function onUp() { document.removeEventListener('mousemove', onMove); dragging = null; }
+  function onUp() { document.removeEventListener('mousemove', onMove); dragging = null; updateIconDebugPanel(); }
 
   function activate(cfg) {
     var parts = cfg.action.split(':');
@@ -331,6 +329,115 @@ var Desktop = (function () {
     if (!id) return;
     var el = document.getElementById(id);
     if (el) el.classList.toggle('running', on);
+  }
+
+  // ── ICON LAYOUT DEBUG PANEL ──────────────────────────────
+  function buildIconDebugPanel() {
+    var panel = document.createElement('div');
+    panel.id = 'icon-debug-panel';
+    panel.style.cssText = [
+      'position:fixed',
+      'bottom:48px',
+      'right:12px',
+      'z-index:9999',
+      'background:rgba(0,0,0,0.92)',
+      'border:1px solid #f0c677',
+      'font-family:monospace',
+      'font-size:11px',
+      'color:#f0c677',
+      'padding:10px 12px',
+      'min-width:260px',
+      'display:none',
+      'user-select:none',
+    ].join(';');
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:9px;letter-spacing:2px;margin-bottom:8px;color:#f0c677;opacity:0.6;';
+    title.textContent = 'ICON LAYOUT DEBUG  [ I ]';
+    panel.appendChild(title);
+
+    var table = document.createElement('div');
+    table.id = 'icon-debug-table';
+    panel.appendChild(table);
+
+    var sep = document.createElement('div');
+    sep.style.cssText = 'border-top:1px solid rgba(240,198,119,0.2);margin:8px 0 6px;';
+    panel.appendChild(sep);
+
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = 'COPY POSITIONS';
+    copyBtn.style.cssText = [
+      'background:transparent',
+      'border:1px solid #f0c677',
+      'color:#f0c677',
+      'font-family:monospace',
+      'font-size:10px',
+      'padding:3px 8px',
+      'cursor:pointer',
+      'width:100%',
+      'margin-top:2px',
+    ].join(';');
+    copyBtn.addEventListener('click', copyIconPositions);
+    panel.appendChild(copyBtn);
+
+    var hint = document.createElement('div');
+    hint.id = 'icon-debug-hint';
+    hint.style.cssText = 'font-size:9px;color:#f0c677;opacity:0.5;margin-top:5px;text-align:center;';
+    panel.appendChild(hint);
+
+    document.body.appendChild(panel);
+
+    document.addEventListener('keydown', function (e) {
+      if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var focused = document.activeElement;
+        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA')) return;
+        iconDebugVisible = !iconDebugVisible;
+        panel.style.display = iconDebugVisible ? 'block' : 'none';
+        if (iconDebugVisible) updateIconDebugPanel();
+      }
+    });
+  }
+
+  function updateIconDebugPanel() {
+    var table = document.getElementById('icon-debug-table');
+    if (!table) return;
+    table.innerHTML = '';
+    ICONS.forEach(function (cfg) {
+      var el = document.getElementById(cfg.id);
+      if (!el) return;
+      var x = Math.round(parseFloat(el.style.left) || 0);
+      var y = Math.round(parseFloat(el.style.top)  || 0);
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;gap:12px;padding:2px 0;';
+      row.innerHTML =
+        '<span style="color:rgba(240,198,119,0.6);">' + cfg.file + '</span>' +
+        '<span>x: <b>' + x + '</b>&nbsp;&nbsp;y: <b>' + y + '</b></span>';
+      table.appendChild(row);
+    });
+  }
+
+  function copyIconPositions() {
+    var lines = ICONS.map(function (cfg) {
+      var el = document.getElementById(cfg.id);
+      var x = el ? Math.round(parseFloat(el.style.left) || 0) : 0;
+      var y = el ? Math.round(parseFloat(el.style.top)  || 0) : 0;
+      var pad = cfg.id.length < 12 ? ' '.repeat(12 - cfg.id.length) : '';
+      return '  { id:\'' + cfg.id + '\'' + pad +
+             ', file:\'' + cfg.file + '\'' +
+             ', emoji:\'' + cfg.emoji + '\'' +
+             ', imgKey:\'' + cfg.imgKey + '\'' +
+             ', x:' + x + ', y:' + y + ',' +
+             '  action:\'' + cfg.action + '\' },';
+    });
+    var text = 'var ICONS = [\n' + lines.join('\n') + '\n];';
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () {
+        var hint = document.getElementById('icon-debug-hint');
+        if (hint) { hint.textContent = 'copied!'; setTimeout(function(){ hint.textContent = ''; }, 1800); }
+      });
+    } else {
+      window.prompt('Copy positions:', text);
+    }
   }
 
   // ── TOAST ─────────────────────────────────────────────────
