@@ -169,7 +169,7 @@ const SITE_DATA = {
 			playUrl: "#",
 			platform: "Physical",
 			duration: "Interactive",
-		},
+		}
 	],
 
 	bootLines: [
@@ -195,7 +195,6 @@ const SITE_DATA = {
 		{ text: "", style: "gap" },
 		{ text: "LOADING LJSYS DESKTOP ENVIRONMENT", style: "normal" },
 		{ text: "  kernel.sys  ......................................  LOADED", style: "ok" },
-		{ text: "  void.drv  ........................................  LOADED", style: "ok" },
 		{ text: "  psx_renderer.drv  ...............................  LOADED", style: "ok" },
 		{ text: "  desktop.exe  .....................................  LOADED", style: "ok" },
 		{ text: "  project.exe  .....................................  READY", style: "ok" },

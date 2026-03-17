@@ -20,7 +20,7 @@ var Scene = (function () {
   var psxPostScene;         // fullscreen quad scene
   var psxPostCamera;        // orthographic camera for fullscreen quad
   var psxPostMaterial;      // ShaderMaterial with PSX post-fx
-  var PSX_RESOLUTION = { w: 480, h: 320 };  // native PSX resolution to snap to
+  var PSX_RESOLUTION = { w: 560, h: 480 };  // native PSX resolution to snap to
   var overheadLight;       // overhead directional light for debug control
   var powerLED;            // green power LED mesh
   var redLED;              // red blinking LED mesh
@@ -57,7 +57,7 @@ var Scene = (function () {
 
   // Screen face corners in local monitor space
   var SCREEN_W   = 3.20;
-  var SCREEN_H   = 0.35;
+  var SCREEN_H   = 0.75;
   var SCREEN_Z   = 1.00;
 
   var localCorners = [
@@ -104,9 +104,9 @@ var Scene = (function () {
                   toPos: new THREE.Vector3(), toTarget: new THREE.Vector3(), progress: 0 };
 
   // ── Project icon fly-in/out animation ─────────────────────
-  var ICON_ORIGIN = new THREE.Vector3(0, 0, -1.2); // behind / at monitor center
-  var ICON_ANIM_SPEED = 0.045;                      // per-frame lerp step
-  // Each entry: { mesh, targetPos, progress [0..1], direction [1=open,-1=close] }
+  var ICON_ANIM_SPEED = 0.072;                      // per-frame animation progress
+  var ICON_EDGE_NDC_OFFSET = 1.22;                 // start slightly beyond the viewport edge
+  // Each entry: { mesh, targetPos, hiddenPos, progress [0..1], direction [1=open,-1=close] }
   var iconAnims = [];
 
   // ── INIT ──────────────────────────────────────────────────
@@ -347,8 +347,9 @@ var Scene = (function () {
       var mat = buildPSXMaterial(null);  // PSX shader — texture loaded async below
 
       var mesh = new THREE.Mesh(geo, mat);
-      // Start at the hidden/origin position behind the monitor
-      mesh.position.copy(ICON_ORIGIN);
+      var hiddenPos = getIconHiddenPos(targetPos, idx);
+      // Start just beyond the screen edge so icons slide in from the void
+      mesh.position.copy(hiddenPos);
       // Isometric tilt — angle down 10 degrees
       mesh.rotation.x = 10 * (Math.PI / 180);
 
@@ -359,12 +360,13 @@ var Scene = (function () {
       mesh.userData.rotSpeedX = rotSpeedX;
       mesh.userData.rotSpeedZ = rotSpeedZ;
       mesh.userData.projKey  = proj.key;
+      mesh.userData.isAnimating = false;
 
       projectMeshGroup.add(mesh);
       projectMeshes.push(mesh);
 
       // Register animation entry for this mesh (starts fully hidden)
-      iconAnims.push({ mesh: mesh, targetPos: targetPos.clone(), progress: 0, direction: 0 });
+      iconAnims.push({ mesh: mesh, targetPos: targetPos.clone(), hiddenPos: hiddenPos.clone(), progress: 0, direction: 0 });
 
       // ── Load texture: img/{key}.png → img/No_Texture.webp ──
       texLoader.load(
@@ -414,8 +416,9 @@ var Scene = (function () {
         
         // Create wrapper group for rotation around geometric center
         var wrapper = new THREE.Group();
-        // Start at origin (hidden position behind monitor)
-        wrapper.position.copy(ICON_ORIGIN);
+        var hiddenPos = iconAnims[projIdx] ? iconAnims[projIdx].hiddenPos : getIconHiddenPos(targetPos, projIdx);
+        // Start offscreen so the custom mesh uses the same entrance path
+        wrapper.position.copy(hiddenPos);
         wrapper.rotation.x = 10 * (Math.PI / 180);
         
         // Offset loaded mesh so its geometric center is at wrapper's local origin
@@ -426,6 +429,7 @@ var Scene = (function () {
         wrapper.userData.rotSpeedX = defaultMesh.userData.rotSpeedX;
         wrapper.userData.rotSpeedZ = defaultMesh.userData.rotSpeedZ;
         wrapper.userData.projKey  = proj.key;
+        wrapper.userData.isAnimating = false;
         
         projectMeshGroup.add(wrapper);
 
@@ -740,6 +744,46 @@ var Scene = (function () {
     }
   }
 
+  function ndcToWorldOnPlane(ndcX, ndcY, planeZ) {
+    var near = new THREE.Vector3(ndcX, ndcY, -1).unproject(camera);
+    var far = new THREE.Vector3(ndcX, ndcY, 1).unproject(camera);
+    var dir = far.sub(near);
+
+    if (Math.abs(dir.z) < 0.0001) {
+      return new THREE.Vector3(ndcX < 0 ? -6 : 6, 0, planeZ);
+    }
+
+    var t = (planeZ - near.z) / dir.z;
+    return near.add(dir.multiplyScalar(t));
+  }
+
+  function getIconHiddenPos(targetPos, idx) {
+    var targetNdc = targetPos.clone().project(camera);
+    var laneOffset = (idx % 2) * 0.08;
+    var rowOffset = ((idx % 3) - 1) * 0.03;
+    var startNdcX = targetPos.x < 0
+      ? -ICON_EDGE_NDC_OFFSET - laneOffset
+      : ICON_EDGE_NDC_OFFSET + laneOffset;
+    var startNdcY = targetNdc.y + rowOffset;
+    return ndcToWorldOnPlane(startNdcX, startNdcY, targetPos.z);
+  }
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function easeInCubic(t) {
+    return t * t * t;
+  }
+
+  function updateAnimatingIconPose(anim, blend) {
+    var side = anim.hiddenPos.x < anim.targetPos.x ? -1 : 1;
+    var pitch = (10 + (1 - blend) * 8) * (Math.PI / 180);
+    var yaw = side * (1 - blend) * 18 * (Math.PI / 180);
+    var roll = -side * (1 - blend) * 10 * (Math.PI / 180);
+    anim.mesh.rotation.set(pitch, yaw, roll);
+  }
+
   // ── VERTEX JITTER (PSX wobble) ────────────────────────────
   function storeOrig(geometry) {
     // Store original vertex positions for jitter effect
@@ -769,19 +813,6 @@ var Scene = (function () {
   }
 
   // ── EASING ────────────────────────────────────────────────
-  function easeOutBack(t) {
-    // Slight overshoot spring feel on arrival
-    var c1 = 1.70158;
-    var c3 = c1 + 1;
-    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-  }
-
-  function easeInBack(t) {
-    var c1 = 1.70158;
-    var c3 = c1 + 1;
-    return c3 * t * t * t - c1 * t * t;
-  }
-
   // ── ICON ANIMATION STEP ───────────────────────────────────
   function stepIconAnims() {
     iconAnims.forEach(function (anim) {
@@ -792,23 +823,30 @@ var Scene = (function () {
       if (anim.progress < 0) return;
 
       var clamped = Math.min(anim.progress, 1);
+      anim.mesh.userData.isAnimating = true;
 
       if (anim.direction === 1) {
-        // Fly OUT: origin → target with overshoot bounce
-        var t = easeOutBack(clamped);
-        anim.mesh.position.lerpVectors(ICON_ORIGIN, anim.targetPos, t);
+        // Fly IN from offscreen edge with smooth easing
+        var t = easeOutCubic(clamped);
+        anim.mesh.position.lerpVectors(anim.hiddenPos, anim.targetPos, t);
+        updateAnimatingIconPose(anim, t);
         if (clamped >= 1) {
-          // Snap exactly to target so the mesh stays put
           anim.mesh.position.copy(anim.targetPos);
+          anim.mesh.rotation.x = 10 * (Math.PI / 180);
+          anim.mesh.rotation.y = 0;
+          anim.mesh.rotation.z = 0;
           anim.direction = 0;
+          anim.mesh.userData.isAnimating = false;
         }
       } else {
-        // Fly IN: target → origin
-        var t = easeInBack(clamped);
-        anim.mesh.position.lerpVectors(anim.targetPos, ICON_ORIGIN, t);
+        // Fly OUT to offscreen edge with smooth easing
+        var t = easeInCubic(clamped);
+        anim.mesh.position.lerpVectors(anim.targetPos, anim.hiddenPos, t);
+        updateAnimatingIconPose(anim, 1 - t);
         if (clamped >= 1) {
-          anim.mesh.position.copy(ICON_ORIGIN);
+          anim.mesh.position.copy(anim.hiddenPos);
           anim.direction = 0;
+          anim.mesh.userData.isAnimating = false;
         }
       }
     });
@@ -854,6 +892,7 @@ var Scene = (function () {
 
     // Rotate project icon meshes
     projectMeshes.forEach(function (mesh) {
+      if (mesh.userData.isAnimating) return;
       mesh.rotation.x += mesh.userData.rotSpeedX || ((Math.random() > 0.5 ? 1 : -1) * 0.004);
       mesh.rotation.y += mesh.userData.rotSpeed || (Math.random() > 0.5 ? 0.008 : -0.008);
       mesh.rotation.z += mesh.userData.rotSpeedZ || ((Math.random() > 0.5 ? 1 : -1) * 0.004);
@@ -908,7 +947,7 @@ var Scene = (function () {
         ditherStr:   { value: 0.01 },    // strength of Bayer dither
         crtWarp:     { value: 0.05 },   // barrel-distortion amount
         scanlineStr: { value: 0.10 },    // darkness of scanline dip
-        vignette:    { value: 0.38 },    // edge darkening
+        vignette:    { value: 0.0 },     // edge darkening disabled
       },
 
       vertexShader: [
@@ -1067,23 +1106,25 @@ var Scene = (function () {
   // ── PUBLIC: show/hide project icon meshes with fly-in animation ──
   function showProjectMeshes(on) {
     if (on) {
-      // Make group visible first, then kick off fly-out animations with stagger
+      // Make group visible first, then kick off edge-to-target animations with stagger
       projectMeshGroup.visible = true;
       iconAnims.forEach(function (anim, idx) {
-        anim.direction = 1;   // open / fly out
+        anim.hiddenPos.copy(getIconHiddenPos(anim.targetPos, idx));
+        anim.mesh.position.copy(anim.hiddenPos);
+        anim.mesh.userData.isAnimating = true;
+        anim.direction = 1;   // open / fly in from edge
         anim.progress  = 0;
-        // Stagger each icon by a small delay based on index
-        // We simulate delay by starting progress slightly negative
-        anim.progress = -idx * 0.08;
+        anim.progress = -idx * 0.065;
       });
     } else {
-      // Reverse: fly everything back behind the monitor
+      // Reverse: send everything back out to the edges
       iconAnims.forEach(function (anim, idx) {
-        anim.direction = -1;  // close / suck back in
+        anim.hiddenPos.copy(getIconHiddenPos(anim.targetPos, idx));
+        anim.mesh.userData.isAnimating = true;
+        anim.direction = -1;  // close / fly out to edge
         anim.progress  = 0;
-        // Stagger in reverse order so inner icons go first
         var reverseIdx = iconAnims.length - 1 - idx;
-        anim.progress = -reverseIdx * 0.06;
+        anim.progress = -reverseIdx * 0.05;
       });
 
       // Hide group after longest possible animation completes
@@ -1093,9 +1134,11 @@ var Scene = (function () {
         // Only hide if we're still in "closed" state (direction finished at -1)
         var stillClosing = iconAnims.some(function (a) { return a.direction !== 0 || a.progress > 0; });
         if (!stillClosing) projectMeshGroup.visible = false;
-        // Brute-force: reset all to origin position
         iconAnims.forEach(function (anim) {
-          if (anim.direction === 0) anim.mesh.position.copy(ICON_ORIGIN);
+          if (anim.direction === 0) {
+            anim.mesh.position.copy(anim.hiddenPos);
+            anim.mesh.userData.isAnimating = false;
+          }
         });
         projectMeshGroup.visible = false;
       }, hideAfterMs);

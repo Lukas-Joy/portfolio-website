@@ -9,10 +9,10 @@
 var Desktop = (function () {
 
   var ICONS = [
-    { id:'ic-projects', file:'project.exe', imgKey:'icon-projects', x:250, y:96,  action:'app:project' },
-    { id:'ic-about',    file:'about.html', imgKey:'icon-about',    x:97,  y:4,   action:'win:about'   },
-    { id:'ic-contact',  file:'contact.txt', imgKey:'icon-contact',  x:366, y:226, action:'win:contact' },
-    { id:'ic-cv',       file:'CV.pdf', imgKey:'icon-cv',       x:34,  y:211, action:'win:cv'      },
+    { id:'ic-projects', file:'project.exe', emoji:'🗂️', imgKey:'icon-projects', x:250, y:96,  action:'app:project' },
+    { id:'ic-about',    file:'about.html', emoji:'ℹ️', imgKey:'icon-about',    x:97,  y:4,   action:'win:about'   },
+    { id:'ic-contact',  file:'contact.txt', emoji:'✉️', imgKey:'icon-contact',  x:366, y:226, action:'win:contact' },
+    { id:'ic-cv',       file:'CV.pdf', emoji:'📄', imgKey:'icon-cv',       x:34,  y:211, action:'win:cv'      },
   ];
 
   var dragging = null, dragOffX = 0, dragOffY = 0;

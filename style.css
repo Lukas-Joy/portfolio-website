@@ -58,14 +58,6 @@ body {
 /* ── THREE.JS CANVAS ──────────────────────────────────────── */
 #three-canvas { position: fixed; inset: 0; z-index: 0; display: block; }
 
-/* ── VOID AMBIENT VIGNETTE ────────────────────────────────── */
-#void-vignette {
-  position: fixed; inset: 0; pointer-events: none; z-index: 1;
-  background: radial-gradient(ellipse at 50% 50%,
-    transparent 30%,
-    rgba(20,16,10,0.55) 80%,
-    rgba(10,8,5,0.85) 100%);
-}
 
 /* ── VOID PARTICLES ───────────────────────────────────────── */
 #particles { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
@@ -590,7 +582,6 @@ body {
 }
 #crt-scanlines::after {
   content: ''; position: fixed; inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(0,0,0,.45) 60%, rgba(0,0,0,.85) 100%);
   pointer-events: none;
 }
 /* ── CRT FLICKER ──────────────────────────────────────────── */
