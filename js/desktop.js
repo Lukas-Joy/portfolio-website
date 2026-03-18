@@ -1,7 +1,7 @@
 /**
  * desktop.js — Desktop icons (draggable, confined to desktop area) + taskbar
  *
- * Desktop icons try to load from img/icon-{id}.png
+ * Desktop icons try to load from img/icon-{id}.svg
  * Falls back to img/No_Texture.webp, then plain emoji if that also fails
  * Clock is always GMT+13
  */

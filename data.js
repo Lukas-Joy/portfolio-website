@@ -5,10 +5,10 @@
  *
  *	Asset paths (optional — falls back to img/No_Texture.webp):
  *	  SITE_DATA.assets.monitorMeshFile  monitor model in mesh/ (e.g. "Display.glb")
- *	  gif/{key}.gif        looping preview in project.exe
+ *	  gif/{key}.webp       looping preview in project.exe
  *	  mesh/{key}.glb       custom 3D mesh for the floating icon
- *	  img/icon-projects.png  |  img/icon-about.png
- *	  img/icon-contact.png   |  img/icon-cv.png
+ *	  img/icon-projects.svg  |  img/icon-about.svg
+ *	  img/icon-contact.svg   |  img/icon-cv.svg
  *	     desktop icon images (fallback: emoji)
  */
 
