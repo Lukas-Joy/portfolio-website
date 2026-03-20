@@ -14,6 +14,14 @@ var Scene = (function () {
   var screenTexture;          // CanvasTexture from canvas
   var projectMeshGroup;    // group holding all 3D project icons
   var projectMeshes = [];  // [{mesh, projKey, rotSpeed}]
+  var voidParticles = [];  // cached particle dom nodes for subtle ambient motion
+  var voidParticleState = {
+    driftX: 0,
+    driftY: 0,
+    targetX: 0,
+    targetY: 0,
+    nextRetargetAt: 0,
+  };
 
   // PSX post-processing
   var psxRenderTarget;      // WebGLRenderTarget — scene renders here first
@@ -137,7 +145,6 @@ var Scene = (function () {
     buildScreenCanvas();  // Create canvas for rendering UI to texture
     buildMonitor();
     updateMonitorDebug();  // Apply initial debugConfig position/scale
-    buildStarfield();
     buildVoidParticles();
     buildProjectIcons();   // 3D floating icons in grid
 
@@ -307,14 +314,46 @@ var Scene = (function () {
   function buildVoidParticles() {
     var c = document.getElementById('particles');
     if (!c) return;
-    for (var i = 0; i < 18; i++) {
+    c.innerHTML = '';
+    voidParticles = [];
+
+    for (var i = 0; i < 54; i++) {
       var p = document.createElement('div');
-      p.className = 'void-particle';
+      var layer = i % 3;
+      p.className = 'void-particle vp-layer-' + layer;
       p.style.left             = (Math.random() * 100) + 'vw';
       p.style.bottom           = (-Math.random() * 8) + 'vh';
-      p.style.animationDuration = (9 + Math.random() * 11) + 's';
-      p.style.animationDelay   = (-Math.random() * 14) + 's';
+      p.style.animationDuration = (10 + layer * 2 + Math.random() * 9) + 's';
+      p.style.animationDelay   = (-Math.random() * 18) + 's';
+      p.style.setProperty('--drift-x', ((Math.random() * 80) - 40).toFixed(1) + 'px');
+      p.style.setProperty('--rise-vh', (82 + Math.random() * 36).toFixed(1) + 'vh');
+      p.style.setProperty('--twinkle-duration', (2.8 + Math.random() * 4.8).toFixed(2) + 's');
       c.appendChild(p);
+      voidParticles.push(p);
+    }
+
+    voidParticleState.nextRetargetAt = performance.now() + 1000;
+  }
+
+  function animateVoidParticles(nowMs) {
+    var c = document.getElementById('particles');
+    if (!c) return;
+
+    if (nowMs >= voidParticleState.nextRetargetAt) {
+      voidParticleState.targetX = (Math.random() - 0.5) * 18;
+      voidParticleState.targetY = (Math.random() - 0.5) * 12;
+      voidParticleState.nextRetargetAt = nowMs + 1800 + Math.random() * 2200;
+    }
+
+    voidParticleState.driftX += (voidParticleState.targetX - voidParticleState.driftX) * 0.015;
+    voidParticleState.driftY += (voidParticleState.targetY - voidParticleState.driftY) * 0.015;
+    c.style.transform = 'translate3d(' + voidParticleState.driftX.toFixed(2) + 'px, ' + voidParticleState.driftY.toFixed(2) + 'px, 0)';
+
+    for (var i = 0; i < voidParticles.length; i++) {
+      var particle = voidParticles[i];
+      if (!particle) continue;
+      var sway = Math.sin(nowMs * 0.0012 + i * 0.53) * 7;
+      particle.style.marginLeft = sway.toFixed(2) + 'px';
     }
   }
 
@@ -854,6 +893,7 @@ var Scene = (function () {
   function renderLoop() {
     requestAnimationFrame(renderLoop);
     var t = Date.now() * 0.001;
+    var nowMs = performance.now();
 
     // Green LED pulse
     if (powerLED) {
@@ -884,6 +924,9 @@ var Scene = (function () {
 
     // Animate camera transitions
     stepCameraAnim();
+
+    // Keep void particles alive with gentle parallax drift.
+    animateVoidParticles(nowMs);
 
     jitterCnt++;
     if (jitterCnt % 8 === 0) applyJitter();
