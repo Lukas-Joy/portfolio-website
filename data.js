@@ -43,6 +43,25 @@ const SITE_DATA = {
 		},
 	},
 
+	helpHints: {
+		enabled: true,
+		title: "HELP / HOW TO USE",
+		intro: "Welcome. This website portfolio behaves like a retro operating system.",
+		controlsTitle: "BASIC CONTROLS",
+		controls: [
+			"Double-click desktop icons to open apps and files.",
+			"Drag windows by the top bar. Use the square button to maximize. Exit with the X button.",
+			"Use the START menu and taskbar to switch between windows quickly.",
+			"Use Tab and Shift+Tab to navigate interactively with keyboard focus.",
+		],
+		featuresTitle: "FEATURES TO TRY",
+		features: [
+			"Open project.exe to spawn 3D project objects around the monitor.",
+			"Click floating void icons to preview each project, then click again for full info.",
+			"And drag the icons around if you like.",
+		],
+	},
+
 	about: {
 		paragraphs: [
 			"Hi. I'm Lukas Joy, a designer and game developer.",

@@ -152,6 +152,9 @@
     document.getElementById('desktop').style.display = 'block';
     Windows.init();
     Desktop.init();
+    setTimeout(function () {
+      if (Windows.openStartupHelp) Windows.openStartupHelp();
+    }, 180);
   }
 
   // ── KICK OFF ──────────────────────────────────────────────

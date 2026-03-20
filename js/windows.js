@@ -13,8 +13,10 @@ var Windows = (function () {
   var projSelectedKey = null;
   var projState      = 'empty';   // 'empty' | 'preview' | 'info'
   var projAnimId     = null;
+  var startupHelpShown = false;
 
   var DEFS = {
+    help:    { title:'HELP',                 build:buildHelp    },
     about:   { title:'\uD83D\uDCC4 about.html',  build:buildAbout   },
     contact: { title:'\uD83D\uDCEC contact.txt', build:buildContact },
     cv:      { title:'\uD83D\uDCCB CV.pdf',      build:buildCV      },
@@ -151,8 +153,13 @@ var Windows = (function () {
         win.style.top    = r.top + 'px';
         win.style.width  = r.width + 'px';
         win.style.height = r.height + 'px';
+      } else if (key === 'help') {
+        win.style.left  = (r.left + 22) + 'px';
+        win.style.top   = (r.top + 22) + 'px';
+        win.style.width = '420px';
+        win.style.height = '';
       } else {
-        var offsets = {about:[28,28], contact:[44,44], cv:[60,60]};
+        var offsets = {about:[28,28], contact:[44,44], cv:[60,60], help:[22,22]};
         var off = offsets[key] || [28,28];
         win.style.left  = (r.left + off[0]) + 'px';
         win.style.top   = (r.top  + off[1]) + 'px';
@@ -617,6 +624,56 @@ var Windows = (function () {
     };
   }
 
+  function buildHelp() {
+    var d = SITE_DATA.helpHints || {};
+    var title = d.title || 'HELP / HOW TO USE';
+    var intro = d.intro || 'Use this desktop like a retro operating system.';
+    var controlsTitle = d.controlsTitle || 'BASIC CONTROLS';
+    var featuresTitle = d.featuresTitle || 'FEATURES TO TRY';
+    var controls = Array.isArray(d.controls) && d.controls.length
+      ? d.controls
+      : [
+          'Double-click desktop icons to open content.',
+          'Drag windows by their title bars.',
+          'Use START and taskbar shortcuts for quick navigation.',
+        ];
+    var features = Array.isArray(d.features) && d.features.length
+      ? d.features
+      : [
+          'Open project.exe to browse project previews and info.',
+          'Click floating icons around the monitor to select projects.',
+        ];
+    var footer = (typeof d.footer === 'string') ? d.footer.trim() : '';
+
+    var controlsHtml = controls.map(function (item) {
+      return '<p>- ' + item + '</p>';
+    }).join('');
+    var featuresHtml = features.map(function (item) {
+      return '<p>- ' + item + '</p>';
+    }).join('');
+
+    return {
+      title: title,
+      html:
+        '<p>' + intro + '</p>' +
+        '<hr class="wsep">' +
+        '<h3>' + controlsTitle + '</h3>' +
+        controlsHtml +
+        '<hr class="wsep">' +
+        '<h3>' + featuresTitle + '</h3>' +
+        featuresHtml +
+        (footer ? ('<p class="wnote">' + footer + '</p>') : '')
+    };
+  }
+
+  function openStartupHelp() {
+    var cfg = SITE_DATA.helpHints || {};
+    if (cfg.enabled === false) return;
+    if (startupHelpShown) return;
+    startupHelpShown = true;
+    open('help');
+  }
+
   // ── HELPERS ───────────────────────────────────────────────
   function getProj(k) { return SITE_DATA.projects.find(function(p){ return p.key === k; }); }
   function clearVoidSel() { document.querySelectorAll('.void-icon').forEach(function(e){ e.classList.remove('selected'); }); }
@@ -627,6 +684,7 @@ var Windows = (function () {
     close: close,
     toggle: toggle,
     selectProject: selectProject,
+    openStartupHelp: openStartupHelp,
     hasOpenWindow: function () { return !!document.querySelector('.popup-win.open'); },
   };
 
