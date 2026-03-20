@@ -605,6 +605,74 @@ body {
   padding: 7px 12px; z-index: 9000; display: none; max-width: 220px;
   line-height: 1.4; box-shadow: 0 0 20px rgba(200,180,138,.1);
 }
+
+/* ── EXTERNAL LINKS BAR ─────────────────────────────────── */
+#neocities-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 9100;
+  width: auto;
+  max-width: calc(100vw - 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.neo-btn {
+  flex: none;
+  display: block;
+  line-height: 0;
+  text-decoration: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  transition: transform 0.12s;
+  overflow: hidden;
+}
+
+.neo-btn-img {
+  width: 96px;
+  height: 34px;
+  display: block;
+  image-rendering: auto;
+  object-fit: contain;
+}
+
+.neo-btn:hover,
+.neo-btn:focus-visible {
+  transform: translateY(-1px);
+}
+
+.neo-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  #neocities-bar {
+    width: auto;
+    max-width: calc(100vw - 8px);
+    bottom: 6px;
+    gap: 0;
+  }
+
+  .neo-btn {
+    transform-origin: center;
+  }
+
+  .neo-btn-img {
+    width: 80px;
+    height: 28px;
+  }
+}
+
 /* ── CRT GLOBAL SCANLINES (covers screen + popups) ──────── */
 #crt-scanlines {
   position: fixed; inset: 0; pointer-events: none; z-index: 9000;

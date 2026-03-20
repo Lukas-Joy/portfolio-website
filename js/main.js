@@ -6,6 +6,51 @@
 
 (function () {
 
+  function buildExternalLinksBar() {
+    var bar = document.getElementById('neocities-bar');
+    if (!bar) return;
+
+    var cfg = (SITE_DATA && SITE_DATA.externalLinkBar) ? SITE_DATA.externalLinkBar : null;
+    var buttons = (cfg && cfg.buttons && cfg.buttons.length) ? cfg.buttons : [];
+
+    bar.innerHTML = '';
+
+    if (!cfg || cfg.enabled === false || !buttons.length) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    bar.style.display = 'flex';
+
+    buttons.forEach(function (btn) {
+      if (!btn || !btn.url) return;
+
+      var link = document.createElement('a');
+      link.className = 'neo-btn';
+      link.href = btn.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.setAttribute('aria-label', btn.label || btn.url);
+
+      if (btn.image) {
+        var img = document.createElement('img');
+        img.className = 'neo-btn-img';
+        img.src = btn.image;
+        img.alt = btn.label || 'External link button';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('error', function () {
+          link.style.display = 'none';
+        });
+        link.appendChild(img);
+      } else {
+        return;
+      }
+
+      bar.appendChild(link);
+    });
+  }
+
   function applyAccessibilityLabels() {
     var a11y = (SITE_DATA && SITE_DATA.accessibility) ? SITE_DATA.accessibility : {};
     var sceneLabel = a11y.sceneCanvasLabel || 'Interactive 3D scene of a retro desktop monitor';
@@ -20,6 +65,7 @@
   }
 
   function start() {
+    buildExternalLinksBar();
     applyAccessibilityLabels();
     Scene.init();
     runBoot(revealDesktop);

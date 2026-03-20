@@ -9,6 +9,7 @@
  *	  mesh/{key}.glb       custom 3D mesh for the floating icon
  *	  img/icon-projects.svg  |  img/icon-about.svg
  *	  img/icon-contact.svg   |  img/icon-cv.svg
+ *    img/{buttonImage}      external link bar button image
  *	     desktop icon images (fallback: emoji)
  */
 
@@ -46,7 +47,7 @@ const SITE_DATA = {
 	helpHints: {
 		enabled: true,
 		title: "HELP / HOW TO USE",
-		intro: "Welcome. This website portfolio behaves like a retro operating system.",
+		intro: "Welcome. This website 	portfolio behaves like a retro operating system.",
 		controlsTitle: "BASIC CONTROLS",
 		controls: [
 			"Double-click desktop icons to open apps and files.",
@@ -79,6 +80,16 @@ const SITE_DATA = {
 			{ label: "GitHub", icon: "⌥", url: "https://github.com/Lukas-Joy", display: "github.com/lukasjoy" },
 		],
 		note: "Response time: eventually. Timezone: GMT+13.",
+	},
+
+	externalLinkBar: {
+		enabled: true,
+		buttons: [
+			{ label: "patch3.neocities.org", url: "https://patch3.neocities.org/", image: "gif/patch3.gif" },
+			{ label: "3denemy.neocities.org", url: "https://3denemy.neocities.org/", image: "gif/3demeny.gif" },
+			{ label: "mikeklubnika.com", url: "https://mikeklubnika.com/", image: "gif/mikeklubnika.gif" },
+			{ label: "wriks.motorcycles", url: "https://www.wriks.motorcycles/", image: "gif/wriks.gif" },
+		],
 	},
 
 	cv: {
