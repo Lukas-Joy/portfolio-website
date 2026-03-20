@@ -142,28 +142,48 @@ var Windows = (function () {
   }
 
   // ── OPEN / CLOSE / TOGGLE / FOCUS ─────────────────────────
+  function getDesktopRect() {
+    var r = (typeof Scene !== 'undefined' && Scene && Scene.screenRect) ? Scene.screenRect : null;
+    if (r && r.width > 0 && r.height > 0) return r;
+    return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  }
+
   function open(key) {
     var win = document.getElementById('win-' + key);
     if (!win) return;
     if (!win.classList.contains('open')) {
-      var r   = Scene.screenRect;
+      var r = getDesktopRect();
       if (key === 'project') {
         // Fill the desktop area (screen overlay minus taskbar)
         win.style.left   = r.left + 'px';
         win.style.top    = r.top + 'px';
         win.style.width  = r.width + 'px';
         win.style.height = r.height + 'px';
-      } else if (key === 'help') {
-        win.style.left  = (r.left + 22) + 'px';
-        win.style.top   = (r.top + 22) + 'px';
-        win.style.width = '420px';
-        win.style.height = '';
       } else {
         var offsets = {about:[28,28], contact:[44,44], cv:[60,60], help:[22,22]};
         var off = offsets[key] || [28,28];
-        win.style.left  = (r.left + off[0]) + 'px';
-        win.style.top   = (r.top  + off[1]) + 'px';
-        win.style.width = ''; win.style.height = '';
+
+        // Keep popups shorter than desktop to encourage scrolling for long content.
+        var desiredWidth = (key === 'help') ? 420 : 400;
+        var width = Math.min(desiredWidth, Math.max(280, Math.floor(r.width - 12)));
+
+        var desiredHeight = (key === 'help') ? Math.round(r.height * 0.58) : Math.round(r.height * 0.62);
+        var height = Math.min(Math.max(220, desiredHeight), Math.max(220, Math.floor(r.height - 12)));
+
+        var minLeft = r.left + 2;
+        var minTop = r.top + 2;
+        var maxLeft = (r.left + r.width) - width - 2;
+        var maxTop = (r.top + r.height) - height - 2;
+
+        var left = r.left + off[0];
+        var top = r.top + off[1];
+        left = Math.max(minLeft, Math.min(left, maxLeft));
+        top = Math.max(minTop, Math.min(top, maxTop));
+
+        win.style.left  = left + 'px';
+        win.style.top   = top + 'px';
+        win.style.width = width + 'px';
+        win.style.height = height + 'px';
       }
     }
     win.classList.add('open');
@@ -289,6 +309,7 @@ var Windows = (function () {
   function toggleMax(key) {
     var win = document.getElementById('win-' + key);
     if (!win) return;
+    var r = getDesktopRect();
     if (win.classList.contains('maximised')) {
       win.classList.remove('maximised');
       // Restore saved position
@@ -307,11 +328,11 @@ var Windows = (function () {
         height: win.style.height,
       };
       win.classList.add('maximised');
-      // Fill the true desktop (full viewport)
-      win.style.left   = '0px';
-      win.style.top    = '0px';
-      win.style.width  = '100vw';
-      win.style.height = '100vh';
+      // Fill only desktop area (never overlap taskbar)
+      win.style.left   = r.left + 'px';
+      win.style.top    = r.top + 'px';
+      win.style.width  = r.width + 'px';
+      win.style.height = r.height + 'px';
     }
     setTimeout(function(){ initScrollbar(key); }, 60);
   }
@@ -471,8 +492,44 @@ var Windows = (function () {
 
   // ── PROJECT: INFO SCROLLBAR ───────────────────────────────
   var DOT_SIZE = 6;
-  var DOT_GAP = 3;
-  var SCROLLBAR_PADDING = 8;
+  var DOT_GAP = 2;
+
+  function getScrollbarWidth() {
+    return DOT_SIZE + (DOT_GAP * 2);
+  }
+
+  function getScrollbarLayout(trackHeight) {
+    var pxHeight = Math.max(0, Math.round(trackHeight));
+    var dotCount = Math.max(1, Math.floor((pxHeight - DOT_GAP) / (DOT_SIZE + DOT_GAP)));
+    var gaps = dotCount + 1;
+    var gapPixels = Math.max(0, pxHeight - (dotCount * DOT_SIZE));
+    var baseGap = Math.floor(gapPixels / gaps);
+    var extra = gapPixels - (baseGap * gaps);
+    return { dotCount: dotCount, baseGap: baseGap, extra: extra };
+  }
+
+  function gapAt(layout, idx) {
+    return layout.baseGap + (idx < layout.extra ? 1 : 0);
+  }
+
+  function buildDotsForScrollbar(sb, dotCount, layout) {
+    sb.style.width = getScrollbarWidth() + 'px';
+    sb.style.paddingTop = gapAt(layout, 0) + 'px';
+    sb.style.paddingBottom = gapAt(layout, dotCount) + 'px';
+    sb.style.rowGap = '0px';
+
+    var dots = [];
+    for (var i = 0; i < dotCount; i++) {
+      var d = document.createElement('div');
+      d.className = 'scrollbar-dot';
+      d.style.width = DOT_SIZE + 'px';
+      d.style.height = DOT_SIZE + 'px';
+      if (i > 0) d.style.marginTop = gapAt(layout, i) + 'px';
+      sb.appendChild(d);
+      dots.push(d);
+    }
+    return dots;
+  }
 
   function initProjInfoScrollbar() {
     var content = document.getElementById('proj-info-content');
@@ -482,16 +539,10 @@ var Windows = (function () {
     sb.innerHTML = '';
 
     var sbHeight = sb.getBoundingClientRect().height;
-    var availableHeight = sbHeight - SCROLLBAR_PADDING;
-    var dotCount = Math.max(1, Math.ceil((availableHeight + DOT_GAP) / (DOT_SIZE + DOT_GAP)));
+    var layout = getScrollbarLayout(sbHeight);
+    var dotCount = layout.dotCount;
 
-    var dots = [];
-    for (var i = 0; i < dotCount; i++) {
-      var d = document.createElement('div');
-      d.className = 'scrollbar-dot';
-      sb.appendChild(d);
-      dots.push(d);
-    }
+    var dots = buildDotsForScrollbar(sb, dotCount, layout);
 
     function updateDots() {
       var scrollRatio = content.scrollTop / (content.scrollHeight - content.clientHeight || 1);
@@ -505,7 +556,6 @@ var Windows = (function () {
         }
       });
     }
-
     var draggingSB = false;
     sb.addEventListener('mousedown', function (e) { draggingSB = true; scrollFromMouse(e); e.preventDefault(); });
     document.addEventListener('mousemove', function (e) { if (draggingSB) scrollFromMouse(e); });
@@ -539,8 +589,17 @@ var Windows = (function () {
     });
     document.addEventListener('mousemove', function(e) {
       if (!_drag) return;
-      var x = Math.max(-240, Math.min(e.clientX - _dox, window.innerWidth  - 40));
-      var y = Math.max(0,    Math.min(e.clientY - _doy, window.innerHeight - 24));
+      var r = getDesktopRect();
+      var rect = _drag.getBoundingClientRect();
+      var xMin = r.left;
+      var yMin = r.top;
+      var xMax = (r.left + r.width) - rect.width;
+      var yMax = (r.top + r.height) - rect.height;
+      if (xMax < xMin) xMax = xMin;
+      if (yMax < yMin) yMax = yMin;
+
+      var x = Math.max(xMin, Math.min(e.clientX - _dox, xMax));
+      var y = Math.max(yMin, Math.min(e.clientY - _doy, yMax));
       _drag.style.left = x + 'px';
       _drag.style.top  = y + 'px';
     });
@@ -556,16 +615,9 @@ var Windows = (function () {
     sb.innerHTML = '';
 
     var sbHeight = sb.getBoundingClientRect().height;
-    var availableHeight = sbHeight - SCROLLBAR_PADDING;
-    var dotCount = Math.max(1, Math.ceil((availableHeight + DOT_GAP) / (DOT_SIZE + DOT_GAP)));
-
-    var dots = [];
-    for (var i = 0; i < dotCount; i++) {
-      var d = document.createElement('div');
-      d.className = 'scrollbar-dot';
-      sb.appendChild(d);
-      dots.push(d);
-    }
+    var layout = getScrollbarLayout(sbHeight);
+    var dotCount = layout.dotCount;
+    var dots = buildDotsForScrollbar(sb, dotCount, layout);
 
     function updateDots() {
       var scrollRatio = body.scrollTop / (body.scrollHeight - body.clientHeight || 1);
@@ -601,7 +653,12 @@ var Windows = (function () {
     var d    = SITE_DATA.about;
     var pars = d.paragraphs.map(function(p){ return '<p>' + p + '</p>'; }).join('');
     var tags = d.skills.map(function(s){ return '<span class="wtag">' + s + '</span>'; }).join('');
-    return { title: 'WHO AM I', html: pars + '<hr class="wsep">' + tags };
+    return {
+      title: 'WHO AM I',
+      html:
+        '<div class="win-section-box"><h2>ABOUT</h2>' + pars + '</div>' +
+        '<div class="win-section-box"><h2>SKILLS</h2>' + tags + '</div>'
+    };
   }
 
   function buildContact() {
@@ -634,9 +691,9 @@ var Windows = (function () {
     var awards = d.awards.map(function(a){ return '<p class="cv-award">&#x2756; ' + a + '</p>'; }).join('');
     return {
       title: 'CV',
-      html: '<h2>EXPERIENCE</h2>' + exp +
-        '<hr class="wsep"><h2>EDUCATION</h2>' + edu +
-        '<hr class="wsep"><h2>AWARDS</h2>' + awards +
+      html: '<div class="cv-section"><h2>EXPERIENCE</h2>' + exp + '</div>' +
+        '<div class="cv-section"><h2>EDUCATION</h2>' + edu + '</div>' +
+        '<div class="cv-section"><h2>AWARDS</h2>' + awards + '</div>' +
         '<a href="' + d.downloadUrl + '" class="dl-btn" target="_blank">&#x2193; DOWNLOAD CV.pdf</a>'
     };
   }
@@ -672,14 +729,9 @@ var Windows = (function () {
     return {
       title: title,
       html:
-        '<p>' + intro + '</p>' +
-        '<hr class="wsep">' +
-        '<h3>' + controlsTitle + '</h3>' +
-        controlsHtml +
-        '<hr class="wsep">' +
-        '<h3>' + featuresTitle + '</h3>' +
-        featuresHtml +
-        (footer ? ('<p class="wnote">' + footer + '</p>') : '')
+        '<div class="win-section-box"><h3>OVERVIEW</h3><p>' + intro + '</p></div>' +
+        '<div class="win-section-box"><h3>' + controlsTitle + '</h3>' + controlsHtml + '</div>' +
+        '<div class="win-section-box"><h3>' + featuresTitle + '</h3>' + featuresHtml + (footer ? ('<p class="wnote">' + footer + '</p>') : '') + '</div>'
     };
   }
 
