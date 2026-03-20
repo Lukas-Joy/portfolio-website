@@ -187,8 +187,8 @@ If a feature is meant to be the same as another system, it should be built insid
 ## Accessibility
 
 - **Colour contrast:** pass all- (f0c677) 13.04:1 | pass except WCAG AAA normal text- (f0c677b7) 6.75:1
-- **Alt text on images:** not yet added
-- **Keyboard navigation:** not yet added
+- **Alt text on images:** added
+- **Keyboard navigation:** works
 
 ---
 
