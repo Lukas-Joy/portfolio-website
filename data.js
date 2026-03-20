@@ -24,6 +24,25 @@ const SITE_DATA = {
 		monitorMeshFile: "computer.glb",
 	},
 
+	accessibility: {
+		sceneCanvasLabel: "Interactive 3D scene of a retro desktop monitor",
+		sceneCanvasFallback: "Your browser does not support the 3D canvas scene.",
+		desktopIconAlt: {
+			"ic-projects": "project.exe desktop icon",
+			"ic-about": "about.html desktop icon",
+			"ic-contact": "contact.txt desktop icon",
+			"ic-cv": "CV.pdf desktop icon",
+		},
+		projectPreviewAlt: {
+			circle_means_orange: "Animated preview for CIRCLE_MEANS_ORANGE showing the road cone player character moving through a warehouse full of shelves road cones the player stops and talks to a stack of cones that is not on the shelves",
+			crackdown: "Animated preview for CRACKDOWN",
+			apple_crypt: "Animated preview for APPLE_CRYPT showing the player charcter in a retro low-poly castle dungeon eating an apple, then walking through a door arch into another room in search of more apples",
+			too_many_games: "Animated preview for TOO_MANY_GAMES",
+			lifese: "Animated preview for LIFESE",
+			orbit: "Animated preview for ORBIT",
+		},
+	},
+
 	about: {
 		paragraphs: [
 			"Hi. I'm Lukas Joy, a designer and game developer.",

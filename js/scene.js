@@ -170,6 +170,7 @@ var Scene = (function () {
     screenCanvas.width = window.innerWidth * scale;
     screenCanvas.height = window.innerHeight * scale;
     screenCanvas.style.display = 'none';
+    screenCanvas.setAttribute('aria-hidden', 'true');
     document.body.appendChild(screenCanvas);
 
     // Create CanvasTexture (will be updated each frame)
@@ -367,26 +368,6 @@ var Scene = (function () {
 
       // Register animation entry for this mesh (starts fully hidden)
       iconAnims.push({ mesh: mesh, targetPos: targetPos.clone(), hiddenPos: hiddenPos.clone(), progress: 0, direction: 0 });
-
-      // ── Load texture: img/{key}.png → img/No_Texture.webp ──
-      texLoader.load(
-        'img/' + proj.key + '.png',
-        function (tex) {
-          tex.minFilter = THREE.NearestFilter;
-          tex.magFilter = THREE.NearestFilter;
-          mat.uniforms.map.value       = tex;
-          mat.uniforms.hasTexture.value = 1.0;
-        },
-        undefined,
-        function () {
-          texLoader.load('img/No_Texture.webp', function (tex) {
-            tex.minFilter = THREE.NearestFilter;
-            tex.magFilter = THREE.NearestFilter;
-            mat.uniforms.map.value       = tex;
-            mat.uniforms.hasTexture.value = 1.0;
-          });
-        }
-      );
 
       // ── Try to load custom GLB mesh ───────────────────────
       loadMesh(proj, mesh, mat, targetPos, idx);

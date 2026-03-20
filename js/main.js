@@ -6,7 +6,21 @@
 
 (function () {
 
+  function applyAccessibilityLabels() {
+    var a11y = (SITE_DATA && SITE_DATA.accessibility) ? SITE_DATA.accessibility : {};
+    var sceneLabel = a11y.sceneCanvasLabel || 'Interactive 3D scene of a retro desktop monitor';
+    var sceneFallback = a11y.sceneCanvasFallback || 'Your browser does not support the 3D canvas scene.';
+    var sceneCanvas = document.getElementById('three-canvas');
+
+    if (!sceneCanvas) return;
+
+    sceneCanvas.setAttribute('role', 'img');
+    sceneCanvas.setAttribute('aria-label', sceneLabel);
+    sceneCanvas.textContent = sceneFallback;
+  }
+
   function start() {
+    applyAccessibilityLabels();
     Scene.init();
     runBoot(revealDesktop);
   }

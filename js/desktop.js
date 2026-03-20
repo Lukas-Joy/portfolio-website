@@ -31,9 +31,23 @@ var Desktop = (function () {
     buildIcons();
     buildTaskbar();
     buildVoidIcons();
+    initKeyboardNavigation();
     tick();
     setInterval(tick, 15000);
     buildIconDebugPanel();
+  }
+
+  function isActionKey(e) {
+    return e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+  }
+
+  function bindKeyboardActivate(el, onActivate) {
+    if (!el) return;
+    el.addEventListener('keydown', function (e) {
+      if (!isActionKey(e)) return;
+      e.preventDefault();
+      onActivate(e);
+    });
   }
 
   // ── DESKTOP ICONS ─────────────────────────────────────────
@@ -42,6 +56,8 @@ var Desktop = (function () {
     var deskRect = desktop.getBoundingClientRect();
     var iconW = 58;
     var iconH = 72;
+    var a11y = (SITE_DATA && SITE_DATA.accessibility) ? SITE_DATA.accessibility : {};
+    var iconAltMap = a11y.desktopIconAlt || {};
 
     ICONS.forEach(function (cfg, idx) {
       var el = document.createElement('div');
@@ -49,11 +65,16 @@ var Desktop = (function () {
       el.id        = cfg.id;
       el.style.left = cfg.x + 'px';
       el.style.top  = cfg.y + 'px';
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', cfg.file + ' desktop shortcut');
 
       // Try custom image, fall back to No_Texture, then emoji
       var imgEl = new Image();
       imgEl.draggable = false;
       imgEl.className = 'desk-icon-em';
+      var iconAltText = iconAltMap[cfg.id] || (cfg.file + ' desktop icon');
+      imgEl.alt = iconAltText;
 
       imgEl.onload = function () {
         imgEl.style.cssText = 'width:36px;height:36px;object-fit:contain;image-rendering:pixelated;display:block;margin:0 auto;filter:drop-shadow(0 0 4px var(--ph))';
@@ -65,6 +86,8 @@ var Desktop = (function () {
           var span = document.createElement('span');
           span.className = 'desk-icon-em';
           span.textContent = cfg.emoji;
+          span.setAttribute('role', 'img');
+          span.setAttribute('aria-label', iconAltText);
           el.replaceChild(span, imgEl);
         };
         imgEl.src = 'img/No_Texture.webp';
@@ -87,6 +110,7 @@ var Desktop = (function () {
         e.stopPropagation();
         if (!didMove) activate(cfg);
       });
+      bindKeyboardActivate(el, function () { activate(cfg); });
 
       desktop.appendChild(el);
     });
@@ -169,6 +193,15 @@ var Desktop = (function () {
       e.stopPropagation();
       toggleStartMenu();
     });
+    bindKeyboardActivate(document.getElementById('start-btn'), function () { toggleStartMenu(); });
+
+    document.querySelectorAll('.tb-icon').forEach(function (el) {
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
+      var label = (el.textContent || '').trim();
+      el.setAttribute('aria-label', label + ' taskbar shortcut');
+      bindKeyboardActivate(el, function () { el.click(); });
+    });
 
     // Close start menu when clicking elsewhere
     document.addEventListener('mousedown', function (e) {
@@ -184,6 +217,8 @@ var Desktop = (function () {
   function buildStartMenu() {
     var menu = document.createElement('div');
     menu.id = 'start-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Start menu');
 
     // Header
     var header = '<div class="sm-header">' +
@@ -255,20 +290,30 @@ var Desktop = (function () {
 
     // Wire up click handlers for menu items
     menu.querySelectorAll('.sm-item[data-action]').forEach(function (item) {
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('role', 'menuitem');
       item.addEventListener('click', function () {
         var action = item.getAttribute('data-action');
         var parts = action.split(':');
         if (parts[0] === 'app') Windows.open('project');
         else Windows.open(parts[1]);
-        closeStartMenu();
+        closeStartMenu(false);
       });
+      bindKeyboardActivate(item, function () { item.click(); });
     });
 
     menu.querySelectorAll('.sm-proj[data-projkey]').forEach(function (item) {
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('role', 'menuitem');
       item.addEventListener('click', function () {
         Windows.selectProject(item.getAttribute('data-projkey'));
-        closeStartMenu();
+        closeStartMenu(false);
       });
+      bindKeyboardActivate(item, function () { item.click(); });
+    });
+
+    menu.querySelectorAll('a.sm-item').forEach(function (item) {
+      item.setAttribute('role', 'menuitem');
     });
   }
 
@@ -278,12 +323,21 @@ var Desktop = (function () {
 
   function openStartMenu() {
     var menu = document.getElementById('start-menu');
-    if (menu) { menu.classList.add('open'); startMenuOpen = true; }
+    if (!menu) return;
+    menu.classList.add('open');
+    startMenuOpen = true;
+    var first = menu.querySelector('.sm-item');
+    if (first) first.focus();
   }
 
-  function closeStartMenu() {
+  function closeStartMenu(restoreFocus) {
     var menu = document.getElementById('start-menu');
-    if (menu) { menu.classList.remove('open'); startMenuOpen = false; }
+    if (!menu) return;
+    menu.classList.remove('open');
+    startMenuOpen = false;
+    if (restoreFocus === false) return;
+    var startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.focus();
   }
 
   // ── VOID ICONS ────────────────────────────────────────────
@@ -293,16 +347,73 @@ var Desktop = (function () {
       var el  = document.createElement('div');
       el.className = 'void-icon';
       el.id        = 'void-icon-' + proj.key;
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Select project ' + proj.title);
       var hitCircle = document.createElement('div');
       hitCircle.className = 'void-icon-hit';
       el.appendChild(hitCircle);
       el.addEventListener('click', function () { Windows.selectProject(proj.key); });
+      bindKeyboardActivate(el, function () { Windows.selectProject(proj.key); });
       layer.appendChild(el);
     });
   }
 
   function showVoidIcons(on) {
     document.querySelectorAll('.void-icon').forEach(function(e){ e.style.display = on ? 'flex' : 'none'; });
+  }
+
+  function getDesktopTabStops() {
+    var nodes = [];
+
+    document.querySelectorAll('.desk-icon').forEach(function (el) { nodes.push(el); });
+
+    var startBtn = document.getElementById('start-btn');
+    if (startBtn) nodes.push(startBtn);
+
+    document.querySelectorAll('.tb-icon').forEach(function (el) { nodes.push(el); });
+
+    if (startMenuOpen) {
+      document.querySelectorAll('#start-menu.open .sm-item').forEach(function (el) { nodes.push(el); });
+    }
+
+    return nodes.filter(function (el) {
+      return !!el && el.tabIndex >= 0 && el.offsetParent !== null;
+    });
+  }
+
+  function initKeyboardNavigation() {
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && startMenuOpen) {
+        closeStartMenu();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+      if (Windows.hasOpenWindow && Windows.hasOpenWindow()) return;
+
+      var stops = getDesktopTabStops();
+      if (!stops.length) return;
+
+      var first = stops[0];
+      var last = stops[stops.length - 1];
+      var active = document.activeElement;
+      var idx = stops.indexOf(active);
+
+      if (idx === -1) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    });
   }
 
   // ── CLOCK — always GMT+13 ─────────────────────────────────

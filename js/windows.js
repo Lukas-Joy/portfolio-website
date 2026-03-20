@@ -20,6 +20,25 @@ var Windows = (function () {
     cv:      { title:'\uD83D\uDCCB CV.pdf',      build:buildCV      },
   };
 
+  function isActionKey(e) {
+    return e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+  }
+
+  function bindKeyboardActivate(el, onActivate) {
+    if (!el) return;
+    el.addEventListener('keydown', function (e) {
+      if (!isActionKey(e)) return;
+      e.preventDefault();
+      onActivate(e);
+    });
+  }
+
+  function isVisible(el) {
+    if (!el) return false;
+    var style = window.getComputedStyle(el);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  }
+
   function init() {
     // Build static windows
     Object.keys(DEFS).forEach(function (key) {
@@ -35,6 +54,7 @@ var Windows = (function () {
     buildProjectBody();
 
     initDrag();
+    initKeyboardNavigation();
   }
 
   // ── WINDOW FACTORY ────────────────────────────────────────
@@ -42,6 +62,10 @@ var Windows = (function () {
     var win = document.createElement('div');
     win.className = 'popup-win';
     win.id        = 'win-' + key;
+    win.setAttribute('tabindex', '-1');
+    win.setAttribute('role', 'dialog');
+    win.setAttribute('aria-modal', 'false');
+    win.setAttribute('aria-label', contentTitle);
     win.innerHTML =
       '<div class="win-bar">' +
         '<span class="win-title">' + contentTitle + '</span>' +
@@ -52,9 +76,22 @@ var Windows = (function () {
         '<div class="win-body" id="winbody-' + key + '">' + bodyHTML + '</div>' +
         '<div class="win-scrollbar" id="winscroll-' + key + '"></div>' +
       '</div>';
+    var closeBtn = win.querySelector('.win-btn-close');
+    var maxBtn = win.querySelector('.win-btn-max');
+
+    closeBtn.setAttribute('tabindex', '0');
+    closeBtn.setAttribute('role', 'button');
+    closeBtn.setAttribute('aria-label', 'Close window');
+
+    maxBtn.setAttribute('tabindex', '0');
+    maxBtn.setAttribute('role', 'button');
+    maxBtn.setAttribute('aria-label', 'Maximize or restore window');
+
     win.addEventListener('mousedown', function(){ focus(key); });
-    win.querySelector('.win-btn-close').addEventListener('click', function(){ close(key); });
-    win.querySelector('.win-btn-max').addEventListener('click', function(){ toggleMax(key); });
+    closeBtn.addEventListener('click', function(){ close(key); });
+    maxBtn.addEventListener('click', function(){ toggleMax(key); });
+    bindKeyboardActivate(closeBtn, function () { close(key); });
+    bindKeyboardActivate(maxBtn, function () { toggleMax(key); });
     return win;
   }
 
@@ -71,6 +108,9 @@ var Windows = (function () {
 
     var preview = document.createElement('div');
     preview.id  = 'proj-preview';
+    preview.setAttribute('tabindex', '0');
+    preview.setAttribute('role', 'button');
+    preview.setAttribute('aria-label', 'Open project details');
     preview.innerHTML =
       '<div id="prev-wrap"></div>' +
       '<div id="prev-bar">' +
@@ -88,6 +128,11 @@ var Windows = (function () {
 
     // Click on preview area to advance to info
     preview.addEventListener('click', function() {
+      if (projSelectedKey && projState === 'preview') {
+        setProjState('info', projSelectedKey);
+      }
+    });
+    bindKeyboardActivate(preview, function () {
       if (projSelectedKey && projState === 'preview') {
         setProjState('info', projSelectedKey);
       }
@@ -116,6 +161,7 @@ var Windows = (function () {
     }
     win.classList.add('open');
     focus(key);
+    focusFirstInWindow(key);
     Desktop.setRunning('ic-' + (key === 'project' ? 'projects' : key), true);
     setTimeout(function () { initScrollbar(key); }, 50);
 
@@ -157,6 +203,79 @@ var Windows = (function () {
     if (!win) return;
     win.classList.add('focused');
     win.style.zIndex = ++zTop;
+  }
+
+  function getFocusedOpenWindow() {
+    return document.querySelector('.popup-win.open.focused');
+  }
+
+  function getWindowTabStops(win) {
+    if (!win || !win.classList.contains('open')) return [];
+
+    var selectors = [
+      '.win-btn',
+      '.win-body a',
+      '.win-body button',
+      '.win-body input',
+      '.win-body select',
+      '.win-body textarea',
+      '.win-body [tabindex]:not([tabindex="-1"])',
+      '#proj-preview'
+    ].join(',');
+
+    var nodes = Array.prototype.slice.call(win.querySelectorAll(selectors)).filter(isVisible);
+
+    if (win.id === 'win-project') {
+      var projectSelectors = document.querySelectorAll('.void-icon');
+      Array.prototype.forEach.call(projectSelectors, function (el) {
+        if (isVisible(el)) nodes.push(el);
+      });
+    }
+
+    return nodes.filter(function (el) { return el.tabIndex >= 0; });
+  }
+
+  function focusFirstInWindow(key) {
+    var win = document.getElementById('win-' + key);
+    if (!win || !win.classList.contains('open')) return;
+    var stops = getWindowTabStops(win);
+    if (stops.length) stops[0].focus();
+    else win.focus();
+  }
+
+  function initKeyboardNavigation() {
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+
+      var focusedWin = getFocusedOpenWindow();
+      if (!focusedWin) return;
+
+      var stops = getWindowTabStops(focusedWin);
+      if (!stops.length) {
+        e.preventDefault();
+        focusedWin.focus();
+        return;
+      }
+
+      var first = stops[0];
+      var last = stops[stops.length - 1];
+      var active = document.activeElement;
+      var idx = stops.indexOf(active);
+
+      if (idx === -1) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    });
   }
 
   // ── MAXIMISE ──────────────────────────────────────────────
@@ -247,6 +366,9 @@ var Windows = (function () {
     var proj = getProj(key);
     if (!proj) return;
     document.getElementById('prev-title').textContent = proj.title + ' \u00b7 ' + proj.type;
+    var a11y = (SITE_DATA && SITE_DATA.accessibility) ? SITE_DATA.accessibility : {};
+    var previewAltMap = a11y.projectPreviewAlt || {};
+    var previewAltText = previewAltMap[key] || (proj.title + ' animated project preview');
 
     var wrap = document.getElementById('prev-wrap');
     wrap.innerHTML = '';
@@ -256,6 +378,7 @@ var Windows = (function () {
       wrap.innerHTML = '';
       var img = document.createElement('img');
       img.src = 'gif/' + key + '.webp';
+      img.alt = previewAltText;
       img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;';
       wrap.appendChild(img);
     };
@@ -266,8 +389,13 @@ var Windows = (function () {
   }
 
   function startCanvasPreview(key, proj, wrap) {
+    var a11y = (SITE_DATA && SITE_DATA.accessibility) ? SITE_DATA.accessibility : {};
+    var previewAltMap = a11y.projectPreviewAlt || {};
+    var previewAltText = previewAltMap[key] || (proj.title + ' animated project preview');
     var canvas = document.createElement('canvas');
     canvas.id  = 'prev-canvas';
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', previewAltText);
     canvas.style.cssText = 'width:100%;height:100%;display:block;image-rendering:pixelated;';
     wrap.appendChild(canvas);
 
@@ -499,6 +627,7 @@ var Windows = (function () {
     close: close,
     toggle: toggle,
     selectProject: selectProject,
+    hasOpenWindow: function () { return !!document.querySelector('.popup-win.open'); },
   };
 
 }());

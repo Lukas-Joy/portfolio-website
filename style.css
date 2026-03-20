@@ -1,7 +1,4 @@
-/* ============================================================
-   style.css — Lukas Joy Retro Desktop
-   Unified #f0c677 phosphor aesthetic
-   ============================================================ */
+
 
 @import url('https://fonts.googleapis.com/css2?family=Libertinus+Serif:wght@400;600;700&family=Ubuntu:wght@400;700&family=Ubuntu+Mono&family=Pixelify+Sans&family=VT323&display=swap');
 
@@ -93,6 +90,10 @@ body {
 }
 .void-icon:hover .vi-glyph    { transform: scale(1.18); filter: drop-shadow(0 0 14px var(--ph)) brightness(1.2); }
 .void-icon.selected .vi-glyph { filter: drop-shadow(0 0 18px var(--ph)) brightness(1.4); }
+.void-icon:focus-visible .vi-glyph {
+  transform: scale(1.22);
+  filter: drop-shadow(0 0 16px var(--ph)) brightness(1.35);
+}
 .vi-label {
   font-family: var(--pixel); font-size: 5px; color: var(--ph);
   margin-top: 58px;
@@ -157,6 +158,12 @@ body {
 }
 .desk-icon:hover   { border-color: var(--ph-dim); background: var(--ph-faint); }
 .desk-icon.selected { border-color: var(--ph); background: rgba(240,198,119,0.10); }
+.desk-icon:focus-visible {
+  outline: 2px solid var(--ph);
+  outline-offset: 2px;
+  border-color: var(--ph);
+  background: rgba(240,198,119,0.12);
+}
 .desk-icon-em {
   font-size: 24px; display: block; line-height: 1;
   filter: drop-shadow(0 0 5px var(--ph)); margin: 0 auto;
@@ -202,6 +209,10 @@ body {
 }
 #start-btn:hover  { background: #fff; }
 #start-btn:active { transform: scale(.95); }
+#start-btn:focus-visible {
+  outline: 2px solid var(--ph);
+  outline-offset: -2px;
+}
 
 /* Middle: icon shortcuts */
 .tb-mid {
@@ -224,6 +235,10 @@ body {
 .tb-icon:last-child { border-right: none; }
 .tb-icon:hover   { color: var(--ph); background: var(--ph-faint); }
 .tb-icon.running { color: var(--ph); border-color: var(--ph); background: rgba(240,198,119,0.06); }
+.tb-icon:focus-visible {
+  outline: 2px solid var(--ph);
+  outline-offset: -2px;
+}
 
 /* Right: Clock */
 .tb-right {
@@ -284,6 +299,12 @@ body {
 .sm-item:hover {
   background: var(--ph-faint); color: var(--ph);
 }
+.sm-item:focus-visible {
+  outline: 1px solid var(--ph);
+  outline-offset: -1px;
+  background: var(--ph-faint);
+  color: var(--ph);
+}
 .sm-icon {
   width: 16px; text-align: center; font-size: 10px; flex-shrink: 0;
 }
@@ -317,6 +338,10 @@ body {
 
 /* preview */
 #proj-preview { position: absolute; inset: 0; display: none; flex-direction: column; cursor: pointer; }
+#proj-preview:focus-visible {
+  outline: 2px solid var(--ph);
+  outline-offset: -2px;
+}
 #prev-wrap {
   flex: 1; position: relative; overflow: hidden;
   display: flex; align-items: stretch;
@@ -439,6 +464,13 @@ body {
 }
 .win-btn:hover { border-left-color: var(--ph); background: var(--ph-faint); }
 .popup-win.focused .win-btn { border-left-color: var(--ph); }
+.win-btn:focus-visible,
+.info-link:focus-visible,
+.dl-btn:focus-visible,
+.win-body a:focus-visible {
+  outline: 2px solid var(--ph);
+  outline-offset: 1px;
+}
 
 /* Window body + scrollable area container */
 .win-body-wrap {
