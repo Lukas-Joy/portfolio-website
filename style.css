@@ -164,9 +164,9 @@ body {
 }
 .void-icon-hit {
   width: 80px; height: 80px;
-  border-radius: 50%;
   background: transparent;
   pointer-events: all;
+  clip-path: circle(50% at 50% 50%);
 }
 .vi-glyph {
   font-size: 26px; display: block; line-height: 1;

@@ -349,12 +349,14 @@ var Desktop = (function () {
       el.id        = 'void-icon-' + proj.key;
       el.setAttribute('tabindex', '0');
       el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Select project ' + proj.title);
+      el.setAttribute('aria-label', 'Hover to preview ' + proj.title + ', click to open project details');
       var hitCircle = document.createElement('div');
       hitCircle.className = 'void-icon-hit';
       el.appendChild(hitCircle);
-      el.addEventListener('click', function () { Windows.selectProject(proj.key); });
-      bindKeyboardActivate(el, function () { Windows.selectProject(proj.key); });
+      el.addEventListener('mouseenter', function () { Windows.previewProject(proj.key); });
+      el.addEventListener('focus', function () { Windows.previewProject(proj.key); });
+      el.addEventListener('click', function () { Windows.openProjectInfo(proj.key); });
+      bindKeyboardActivate(el, function () { Windows.openProjectInfo(proj.key); });
       layer.appendChild(el);
     });
   }

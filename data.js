@@ -58,7 +58,7 @@ const SITE_DATA = {
 		featuresTitle: "FEATURES TO TRY",
 		features: [
 			"Open project.exe to spawn 3D project objects around the monitor.",
-			"Click floating void icons to preview each project, then click again for full info.",
+			"Hover floating void icons to preview each project, then click icon or preview for full info.",
 			"And drag the icons around if you like.",
 		],
 	},

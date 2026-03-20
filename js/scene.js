@@ -14,6 +14,7 @@ var Scene = (function () {
   var screenTexture;          // CanvasTexture from canvas
   var projectMeshGroup;    // group holding all 3D project icons
   var projectMeshes = [];  // [{mesh, projKey, rotSpeed}]
+  var tmpVec3A = new THREE.Vector3();
   var voidParticles = [];  // cached particle dom nodes for subtle ambient motion
   var voidParticleState = {
     driftX: 0,
@@ -754,14 +755,142 @@ var Scene = (function () {
     for (var i = 0; i < projects.length; i++) {
       var proj = projects[i];
       var el   = document.getElementById('void-icon-' + proj.key);
-      if (!el || !proj._scenePos) continue;
+      if (!el) continue;
 
-      var ndc = proj._scenePos.clone().project(camera);
-      var sx  = (ndc.x + 1) / 2 * window.innerWidth;
-      var sy  = (-ndc.y + 1) / 2 * window.innerHeight;
-      el.style.left = sx + 'px';
-      el.style.top  = sy + 'px';
+      var hitEl = el.querySelector('.void-icon-hit');
+      var shape = getProjectedMeshShape(proj.key);
+
+      if (!shape) {
+        if (proj._scenePos) {
+          var ndc = proj._scenePos.clone().project(camera);
+          var sx  = (ndc.x + 1) / 2 * window.innerWidth;
+          var sy  = (-ndc.y + 1) / 2 * window.innerHeight;
+          el.style.left = sx + 'px';
+          el.style.top  = sy + 'px';
+        }
+        if (hitEl) {
+          hitEl.style.width = '80px';
+          hitEl.style.height = '80px';
+          hitEl.style.clipPath = 'circle(50% at 50% 50%)';
+        }
+        continue;
+      }
+
+      el.style.left = shape.centerX.toFixed(2) + 'px';
+      el.style.top  = shape.centerY.toFixed(2) + 'px';
+
+      if (hitEl) {
+        hitEl.style.width = shape.width.toFixed(2) + 'px';
+        hitEl.style.height = shape.height.toFixed(2) + 'px';
+        hitEl.style.clipPath = shape.clipPath;
+      }
     }
+  }
+
+  function getProjectedMeshShape(projKey) {
+    var mesh = null;
+    for (var i = 0; i < projectMeshes.length; i++) {
+      if (projectMeshes[i] && projectMeshes[i].userData && projectMeshes[i].userData.projKey === projKey) {
+        mesh = projectMeshes[i];
+        break;
+      }
+    }
+    if (!mesh) return null;
+
+    var points = collectProjectedMeshPoints(mesh);
+    if (points.length < 3) return null;
+
+    var hull = computeConvexHull(points);
+    if (hull.length < 3) return null;
+
+    var minX = Infinity;
+    var maxX = -Infinity;
+    var minY = Infinity;
+    var maxY = -Infinity;
+
+    for (var j = 0; j < hull.length; j++) {
+      if (hull[j].x < minX) minX = hull[j].x;
+      if (hull[j].x > maxX) maxX = hull[j].x;
+      if (hull[j].y < minY) minY = hull[j].y;
+      if (hull[j].y > maxY) maxY = hull[j].y;
+    }
+
+    var width = Math.max(24, maxX - minX);
+    var height = Math.max(24, maxY - minY);
+    var centerX = minX + width / 2;
+    var centerY = minY + height / 2;
+
+    var clipPts = [];
+    for (var k = 0; k < hull.length; k++) {
+      var px = ((hull[k].x - minX) / width) * 100;
+      var py = ((hull[k].y - minY) / height) * 100;
+      clipPts.push(px.toFixed(2) + '% ' + py.toFixed(2) + '%');
+    }
+
+    return {
+      centerX: centerX,
+      centerY: centerY,
+      width: width,
+      height: height,
+      clipPath: 'polygon(' + clipPts.join(', ') + ')',
+    };
+  }
+
+  function collectProjectedMeshPoints(root) {
+    var points = [];
+    root.updateMatrixWorld(true);
+
+    root.traverse(function (node) {
+      if (!node.isMesh || !node.geometry || !node.geometry.attributes || !node.geometry.attributes.position) return;
+
+      var posAttr = node.geometry.attributes.position;
+      var step = Math.max(1, Math.floor(posAttr.count / 150));
+
+      for (var i = 0; i < posAttr.count; i += step) {
+        tmpVec3A.fromBufferAttribute(posAttr, i);
+        tmpVec3A.applyMatrix4(node.matrixWorld);
+        tmpVec3A.project(camera);
+        if (tmpVec3A.z < -1.2 || tmpVec3A.z > 1.2) continue;
+        points.push({
+          x: (tmpVec3A.x + 1) * 0.5 * window.innerWidth,
+          y: (-tmpVec3A.y + 1) * 0.5 * window.innerHeight,
+        });
+      }
+    });
+
+    return points;
+  }
+
+  function computeConvexHull(points) {
+    if (points.length < 3) return points.slice();
+
+    var sorted = points.slice().sort(function (a, b) {
+      return a.x === b.x ? a.y - b.y : a.x - b.x;
+    });
+
+    var lower = [];
+    for (var i = 0; i < sorted.length; i++) {
+      while (lower.length >= 2 && cross2D(lower[lower.length - 2], lower[lower.length - 1], sorted[i]) <= 0) {
+        lower.pop();
+      }
+      lower.push(sorted[i]);
+    }
+
+    var upper = [];
+    for (var j = sorted.length - 1; j >= 0; j--) {
+      while (upper.length >= 2 && cross2D(upper[upper.length - 2], upper[upper.length - 1], sorted[j]) <= 0) {
+        upper.pop();
+      }
+      upper.push(sorted[j]);
+    }
+
+    lower.pop();
+    upper.pop();
+    return lower.concat(upper);
+  }
+
+  function cross2D(o, a, b) {
+    return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
   }
 
   function ndcToWorldOnPlane(ndcX, ndcY, planeZ) {

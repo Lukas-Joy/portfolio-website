@@ -130,12 +130,12 @@ var Windows = (function () {
 
     // Click on preview area to advance to info
     preview.addEventListener('click', function() {
-      if (projSelectedKey && projState === 'preview') {
+      if (projSelectedKey) {
         setProjState('info', projSelectedKey);
       }
     });
     bindKeyboardActivate(preview, function () {
-      if (projSelectedKey && projState === 'preview') {
+      if (projSelectedKey) {
         setProjState('info', projSelectedKey);
       }
     });
@@ -318,15 +318,32 @@ var Windows = (function () {
 
   // ── PROJECT: SELECT ───────────────────────────────────────
   function selectProject(key) {
+    openProjectInfo(key);
+  }
+
+  function previewProject(key) {
     if (!projOpen) open('project');
 
-    if (projSelectedKey === key) {
-      setProjState(projState === 'preview' ? 'info' : 'preview', key);
-    } else {
-      projSelectedKey = key;
-      clearVoidSel();
-      var el = document.getElementById('void-icon-' + key);
-      if (el) el.classList.add('selected');
+    projSelectedKey = key;
+    clearVoidSel();
+    var el = document.getElementById('void-icon-' + key);
+    if (el) el.classList.add('selected');
+    setProjState('preview', key);
+  }
+
+  function openProjectInfo(key) {
+    if (!projOpen) open('project');
+
+    projSelectedKey = key;
+    clearVoidSel();
+    var el = document.getElementById('void-icon-' + key);
+    if (el) el.classList.add('selected');
+    setProjState('info', key);
+  }
+
+  function refreshProjectHoverPreview(key) {
+    if (!projOpen || !key || key !== projSelectedKey) return;
+    if (projState === 'preview') {
       setProjState('preview', key);
     }
   }
@@ -448,7 +465,7 @@ var Windows = (function () {
       '<div class="info-tags">' + tags + '</div>' +
       '<div class="info-meta">Platform: ' + proj.platform + '<br>Duration: ' + proj.duration + '</div>' +
       '<a href="' + proj.playUrl + '" target="_blank" class="info-link">\u25ba VIEW PROJECT</a>' +
-      '<div class="info-hint blink">[ CLICK ICON AGAIN FOR PREVIEW ]</div>';
+      '<div class="info-hint blink">[ HOVER ICON TO PREVIEW AGAIN ]</div>';
     setTimeout(function () { initProjInfoScrollbar(); }, 50);
   }
 
@@ -684,6 +701,9 @@ var Windows = (function () {
     close: close,
     toggle: toggle,
     selectProject: selectProject,
+    previewProject: previewProject,
+    openProjectInfo: openProjectInfo,
+    refreshProjectHoverPreview: refreshProjectHoverPreview,
     openStartupHelp: openStartupHelp,
     hasOpenWindow: function () { return !!document.querySelector('.popup-win.open'); },
   };
