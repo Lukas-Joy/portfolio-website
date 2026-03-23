@@ -234,6 +234,12 @@ var Windows = (function () {
     if (win.classList.contains('open')) close(key); else open(key);
   }
 
+  function closeAll() {
+    ['help', 'about', 'contact', 'cv', 'project'].forEach(function (key) {
+      close(key);
+    });
+  }
+
   function focus(key) {
     document.querySelectorAll('.popup-win').forEach(function(w){ w.classList.remove('focused'); });
     var win = document.getElementById('win-' + key);
@@ -767,6 +773,7 @@ var Windows = (function () {
     open: open,
     close: close,
     toggle: toggle,
+    closeAll: closeAll,
     selectProject: selectProject,
     previewProject: previewProject,
     openProjectInfo: openProjectInfo,

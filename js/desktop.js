@@ -27,6 +27,10 @@ var Desktop = (function () {
     return x - Math.floor(x);
   }
 
+  function isDebugMenusEnabled() {
+    return !SITE_DATA || !SITE_DATA.debug || SITE_DATA.debug.menusEnabled !== false;
+  }
+
   function init() {
     buildIcons();
     buildTaskbar();
@@ -34,7 +38,7 @@ var Desktop = (function () {
     initKeyboardNavigation();
     tick();
     setInterval(tick, 15000);
-    buildIconDebugPanel();
+    if (isDebugMenusEnabled()) buildIconDebugPanel();
   }
 
   function isActionKey(e) {

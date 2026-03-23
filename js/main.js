@@ -68,7 +68,13 @@
     buildExternalLinksBar();
     applyAccessibilityLabels();
     Scene.init();
-    runBoot(revealDesktop);
+    if (Scene.playStartupPowerOnAnimation) {
+      Scene.playStartupPowerOnAnimation(function () {
+        runBoot(revealDesktop);
+      });
+    } else {
+      runBoot(revealDesktop);
+    }
   }
 
   // ── BOOT SEQUENCE ─────────────────────────────────────────
@@ -198,6 +204,7 @@
     document.getElementById('desktop').style.display = 'block';
     Windows.init();
     Desktop.init();
+    if (Scene.setPowerButtonEnabled) Scene.setPowerButtonEnabled(true);
     setTimeout(function () {
       if (Windows.openStartupHelp) Windows.openStartupHelp();
     }, 180);

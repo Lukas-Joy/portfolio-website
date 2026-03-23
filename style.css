@@ -832,6 +832,34 @@ body {
   97.5% { opacity: .012; background: #fff; }
 }
 
+/* ── POWER HOVER FINGER ─────────────────────────────────── */
+#power-finger {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 170px;
+  height: auto;
+  z-index: 9200;
+  pointer-events: none;
+  opacity: 0;
+  --finger-offset-x: 0px;
+  --finger-offset-y: 0px;
+  --finger-rise-px: 140px;
+  transform: translate(
+    calc(-50% + var(--finger-offset-x)),
+    calc(-50% + var(--finger-offset-y) + var(--finger-rise-px))
+  );
+  transition: none;
+  filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.6));
+}
+
+#power-finger.show {
+  transform: translate(
+    calc(-50% + var(--finger-offset-x)),
+    calc(-50% + var(--finger-offset-y) + var(--finger-rise-px))
+  );
+}
+
 /* ── SHARED ───────────────────────────────────────────────── */
 .blink { animation: bl .9s steps(1) infinite; }
 

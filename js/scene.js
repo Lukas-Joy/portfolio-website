@@ -33,6 +33,19 @@ var Scene = (function () {
   var overheadLight;       // overhead directional light for debug control
   var powerLED;            // green power LED mesh
   var redLED;              // red blinking LED mesh
+  var powerButton2D;       // 2D rectangular power-off button mesh
+  var powerButtonOutline;  // debug outline for power-off button
+  var powerFingerEl = null;
+  var powerHovering = false;
+  var powerPointerClientX = 0;
+  var powerPointerClientY = 0;
+  var powerPointerActive = false;
+  var powerFingerVisibility = 0;
+  var startupPowerOnAnim = null;
+  var powerRaycaster = new THREE.Raycaster();
+  var powerPointer = new THREE.Vector2();
+  var powerState = 'on';   // 'on' | 'shutting-down' | 'off' | 'booting'
+  var powerInteractionEnabled = false;
   var ledConfig = {        // green LED debug parameters
     posX: 0.94,
     posY: -1.24,
@@ -51,6 +64,23 @@ var Scene = (function () {
     radius: 0.025,
     blinkSpeed: 6.0,
     blinkIntensity: 1
+  };
+  var powerButtonConfig = {
+    posX: 0.49,
+    posY: -1.26,
+    posZ: 1.18,
+    width: 0.30,
+    height: 0.07,
+    color: 0x141414,
+    outlineVisibleDebug: true,
+  };
+  var powerFingerConfig = {
+    sizePx: 220,
+    offsetX: 87,
+    offsetY: 114,
+    distancePx: 110,
+    onButtonRadiusPx: 25,
+    forceVisibleDebug: false,
   };
 
   // ── DEBUG POSITIONING ────────────────────────────────────
@@ -148,17 +178,23 @@ var Scene = (function () {
     updateMonitorDebug();  // Apply initial debugConfig position/scale
     buildVoidParticles();
     buildProjectIcons();   // 3D floating icons in grid
+    buildPowerHoverFinger();
+    initPowerButtonInteraction(canvas);
 
-    buildDebugPanel();     // Build debug positioning panel (hidden by default)
+    if (isDebugMenusEnabled()) {
+      buildDebugPanel();   // Build debug positioning panel (hidden by default)
+    }
 
     window.addEventListener('resize', onResize);
 
     // Keyboard shortcut to toggle debug panel (press 'D')
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'd' || e.key === 'D') {
-        toggleDebugPanel();
-      }
-    });
+    if (isDebugMenusEnabled()) {
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'd' || e.key === 'D') {
+          toggleDebugPanel();
+        }
+      });
+    }
 
     // One synchronous render + overlay update before boot sequence begins
     renderer.render(threeScene, camera);
@@ -166,6 +202,31 @@ var Scene = (function () {
 
     requestAnimationFrame(renderLoop);
 
+  }
+
+  function isDebugMenusEnabled() {
+    return !SITE_DATA || !SITE_DATA.debug || SITE_DATA.debug.menusEnabled !== false;
+  }
+
+  function buildPowerHoverFinger() {
+    var el = document.getElementById('power-finger');
+    if (!el) {
+      el = document.createElement('img');
+      el.id = 'power-finger';
+      el.src = 'img/finger.png';
+      el.alt = '';
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+    }
+    powerFingerEl = el;
+    applyPowerFingerDebugStyles();
+  }
+
+  function applyPowerFingerDebugStyles() {
+    if (!powerFingerEl) return;
+    powerFingerEl.style.width = powerFingerConfig.sizePx + 'px';
+    powerFingerEl.style.setProperty('--finger-offset-x', powerFingerConfig.offsetX + 'px');
+    powerFingerEl.style.setProperty('--finger-offset-y', powerFingerConfig.offsetY + 'px');
   }
 
 
@@ -291,6 +352,28 @@ var Scene = (function () {
     redLED.position.set(redLedConfig.posX, redLedConfig.posY, redLedConfig.posZ);
     threeScene.add(redLED);
 
+    // Power-off button — 2D rectangle (flat plane)
+    powerButton2D = new THREE.Mesh(
+      new THREE.PlaneGeometry(powerButtonConfig.width, powerButtonConfig.height),
+      new THREE.MeshBasicMaterial({
+        color: powerButtonConfig.color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      })
+    );
+    powerButton2D.position.set(powerButtonConfig.posX, powerButtonConfig.posY, powerButtonConfig.posZ);
+    threeScene.add(powerButton2D);
+
+    powerButtonOutline = new THREE.LineSegments(
+      new THREE.EdgesGeometry(powerButton2D.geometry),
+      new THREE.LineBasicMaterial({ color: 0xf0c677 })
+    );
+    powerButtonOutline.position.set(powerButtonConfig.posX, powerButtonConfig.posY, powerButtonConfig.posZ + 0.001);
+    powerButtonOutline.visible = false;
+    threeScene.add(powerButtonOutline);
+
     // Don't apply rotation to group — screen corners stay in unrotated space
     threeScene.add(monitorGroup);
   }
@@ -356,6 +439,387 @@ var Scene = (function () {
       var sway = Math.sin(nowMs * 0.0012 + i * 0.53) * 7;
       particle.style.marginLeft = sway.toFixed(2) + 'px';
     }
+  }
+
+  function initPowerButtonInteraction(canvas) {
+    if (!canvas) return;
+    window.addEventListener('pointermove', function (e) {
+      if (!camera || !powerButton2D) return;
+      powerPointerClientX = e.clientX;
+      powerPointerClientY = e.clientY;
+      powerPointerActive = true;
+      if (!powerInteractionEnabled) {
+        setPowerHovering(false);
+        return;
+      }
+
+      var rect = canvas.getBoundingClientRect();
+      powerPointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      powerPointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      powerRaycaster.setFromCamera(powerPointer, camera);
+      var hit = powerRaycaster.intersectObject(powerButton2D, false);
+      setPowerHovering(!!(hit && hit.length));
+    });
+
+    window.addEventListener('pointerleave', function () {
+      powerPointerActive = false;
+      setPowerHovering(false);
+    });
+
+    window.addEventListener('blur', function () {
+      powerPointerActive = false;
+      setPowerHovering(false);
+    });
+
+    window.addEventListener('pointerdown', function (e) {
+      if (!camera || !powerButton2D) return;
+      if (!powerInteractionEnabled) return;
+      var rect = canvas.getBoundingClientRect();
+      powerPointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      powerPointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      powerRaycaster.setFromCamera(powerPointer, camera);
+
+      var hit = powerRaycaster.intersectObject(powerButton2D, false);
+      if (!hit || !hit.length) return;
+
+      if (powerState === 'on') {
+        startShutdownSequence();
+      } else if (powerState === 'off') {
+        startBootSequenceNoReload();
+      }
+    });
+  }
+
+  function setPowerHovering(on) {
+    powerHovering = !!on;
+    syncPowerFingerVisibility();
+  }
+
+  function syncPowerFingerVisibility() {
+    if (!powerFingerEl) return;
+    if (!powerHovering && !(debugMode && powerFingerConfig.forceVisibleDebug) && powerFingerVisibility <= 0.001) {
+      powerFingerEl.classList.remove('show');
+    }
+  }
+
+  function pointToRectDistance(px, py, rect) {
+    var dx = Math.max(rect.left - px, 0, px - rect.right);
+    var dy = Math.max(rect.top - py, 0, py - rect.bottom);
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function getPowerFingerTargetVisibility(buttonBounds) {
+    if (debugMode && powerFingerConfig.forceVisibleDebug) return 1;
+    if (!powerInteractionEnabled || !powerPointerActive) return 0;
+
+    var distance = pointToRectDistance(powerPointerClientX, powerPointerClientY, buttonBounds);
+    var radius = Math.max(1, powerFingerConfig.distancePx || 1);
+    var innerRadius = Math.max(0, Math.min(radius - 1, powerFingerConfig.onButtonRadiusPx || 0));
+
+    if (distance <= innerRadius) return 1;
+    if (distance >= radius) return 0;
+
+    var t = 1 - ((distance - innerRadius) / (radius - innerRadius));
+    return t * t * (3 - 2 * t);
+  }
+
+  function getPowerButtonScreenBounds() {
+    if (!camera || !powerButton2D || !powerButton2D.geometry) return null;
+
+    powerButton2D.updateMatrixWorld(true);
+
+    var w = powerButtonConfig.width * 0.5;
+    var h = powerButtonConfig.height * 0.5;
+    var corners = [
+      new THREE.Vector3(-w,  h, 0),
+      new THREE.Vector3( w,  h, 0),
+      new THREE.Vector3(-w, -h, 0),
+      new THREE.Vector3( w, -h, 0),
+    ];
+
+    var minX = Infinity;
+    var maxX = -Infinity;
+    var minY = Infinity;
+    var maxY = -Infinity;
+
+    for (var i = 0; i < corners.length; i++) {
+      var wp = corners[i].clone().applyMatrix4(powerButton2D.matrixWorld).project(camera);
+      var sx = (wp.x + 1) * 0.5 * window.innerWidth;
+      var sy = (-wp.y + 1) * 0.5 * window.innerHeight;
+      if (sx < minX) minX = sx;
+      if (sx > maxX) maxX = sx;
+      if (sy < minY) minY = sy;
+      if (sy > maxY) maxY = sy;
+    }
+
+    return {
+      left: minX,
+      right: maxX,
+      top: minY,
+      bottom: maxY,
+    };
+  }
+
+  function getPowerButtonScreenPos() {
+    var b = getPowerButtonScreenBounds();
+    if (!b) return null;
+    return {
+      x: (b.left + b.right) * 0.5,
+      y: (b.top + b.bottom) * 0.5,
+    };
+  }
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function playStartupPowerOnAnimation(onPressed) {
+    powerInteractionEnabled = false;
+    powerPointerActive = false;
+    powerFingerVisibility = 0;
+    powerState = 'off';
+    setPowerHovering(false);
+    applyPoweredOffState();
+
+    startupPowerOnAnim = {
+      startedAt: performance.now(),
+      onPressed: onPressed,
+      pressed: false,
+      done: false,
+      delayMs: 1000,
+      moveMs: 900,
+      pressMs: 180,
+      fadeMs: 240,
+      startDx: -220,
+      startDy: 260,
+      pressDipPx: 16,
+    };
+  }
+
+  function updateStartupPowerOnAnimation(nowMs) {
+    if (!startupPowerOnAnim || startupPowerOnAnim.done) return false;
+    if (!powerFingerEl) return false;
+
+    var buttonPos = getPowerButtonScreenPos();
+    if (!buttonPos) return false;
+
+    var anim = startupPowerOnAnim;
+    var elapsed = nowMs - anim.startedAt;
+    var moveStart = anim.delayMs;
+    var moveEnd = moveStart + anim.moveMs;
+    var pressEnd = moveEnd + anim.pressMs;
+    var fadeEnd = pressEnd + anim.fadeMs;
+
+    var x = buttonPos.x + anim.startDx;
+    var y = buttonPos.y + anim.startDy;
+    var visibility = 0;
+    var risePx = 180;
+
+    if (elapsed >= moveStart) {
+      var moveT = Math.min(1, Math.max(0, (elapsed - moveStart) / anim.moveMs));
+      var easedMove = easeInOutCubic(moveT);
+      x = buttonPos.x + anim.startDx * (1 - easedMove);
+      y = buttonPos.y + anim.startDy * (1 - easedMove);
+      visibility = easedMove;
+      risePx = (1 - easedMove) * 150;
+    }
+
+    if (elapsed >= moveEnd && elapsed <= pressEnd) {
+      var pressT = (elapsed - moveEnd) / anim.pressMs;
+      var downUp = pressT < 0.5 ? (pressT / 0.5) : ((1 - pressT) / 0.5);
+      y += anim.pressDipPx * downUp;
+      risePx = Math.max(0, risePx - (12 * downUp));
+
+      if (!anim.pressed && pressT >= 0.45) {
+        anim.pressed = true;
+        powerState = 'on';
+        if (typeof anim.onPressed === 'function') anim.onPressed();
+      }
+    }
+
+    if (elapsed > pressEnd) {
+      var fadeT = Math.min(1, (elapsed - pressEnd) / anim.fadeMs);
+      visibility = 1 - fadeT;
+      risePx = fadeT * 130;
+    }
+
+    if (elapsed >= fadeEnd) {
+      startupPowerOnAnim.done = true;
+      powerFingerVisibility = 0;
+      powerFingerEl.style.opacity = '0';
+      powerFingerEl.classList.remove('show');
+      return false;
+    }
+
+    powerFingerVisibility = Math.max(0, Math.min(1, visibility));
+    powerFingerEl.classList.add('show');
+    powerFingerEl.style.left = x.toFixed(1) + 'px';
+    powerFingerEl.style.top = y.toFixed(1) + 'px';
+    powerFingerEl.style.opacity = powerFingerVisibility.toFixed(3);
+    powerFingerEl.style.setProperty('--finger-rise-px', risePx.toFixed(1) + 'px');
+    return true;
+  }
+
+  function updatePowerFinger() {
+    if (!powerFingerEl || !powerButton2D) return;
+
+    var buttonBounds = getPowerButtonScreenBounds();
+    if (!buttonBounds) return;
+    var x = (buttonBounds.left + buttonBounds.right) * 0.5;
+    var y = (buttonBounds.top + buttonBounds.bottom) * 0.5;
+
+    var targetVisibility = getPowerFingerTargetVisibility(buttonBounds);
+    var lerpRate = targetVisibility > powerFingerVisibility ? 0.22 : 0.14;
+    powerFingerVisibility += (targetVisibility - powerFingerVisibility) * lerpRate;
+    if (powerFingerVisibility < 0.001) powerFingerVisibility = 0;
+    if (powerFingerVisibility > 0.999) powerFingerVisibility = 1;
+
+    if (powerFingerVisibility > 0) powerFingerEl.classList.add('show');
+    else powerFingerEl.classList.remove('show');
+
+    powerFingerEl.style.left = x.toFixed(1) + 'px';
+    powerFingerEl.style.top = y.toFixed(1) + 'px';
+    powerFingerEl.style.opacity = powerFingerVisibility.toFixed(3);
+    powerFingerEl.style.setProperty('--finger-rise-px', ((1 - powerFingerVisibility) * 140).toFixed(1) + 'px');
+
+    var hoverRadius = Math.max(1, Math.min(powerFingerConfig.distancePx || 1, powerFingerConfig.onButtonRadiusPx || 1));
+    var dist = pointToRectDistance(powerPointerClientX, powerPointerClientY, buttonBounds);
+    setPowerHovering(powerInteractionEnabled && powerPointerActive && dist <= hoverRadius);
+  }
+
+  function setDesktopIconVisibility(visible) {
+    var val = visible ? '' : 'hidden';
+    var icons = document.querySelectorAll('.desk-icon');
+    Array.prototype.forEach.call(icons, function (el) {
+      el.style.visibility = val;
+    });
+  }
+
+  function startShutdownSequence() {
+    if (powerState !== 'on') return;
+    powerState = 'shutting-down';
+    powerInteractionEnabled = false;
+    setPowerHovering(false);
+
+    if (typeof Windows !== 'undefined' && Windows.closeAll) {
+      Windows.closeAll();
+    }
+
+    // Hide desktop icons first, then start the visible shutdown sequence.
+    setDesktopIconVisibility(false);
+    setTimeout(function () {
+      runShutdownAnimation(function () {
+        powerState = 'off';
+        applyPoweredOffState();
+        powerInteractionEnabled = true;
+      });
+    }, 140);
+  }
+
+  function runShutdownAnimation(onDone) {
+    var boot = document.getElementById('boot-screen');
+    if (!boot) {
+      onDone();
+      return;
+    }
+
+    var lines = [
+      { text: 'LJSYS POWER CONTROL', cls: 'header' },
+      { text: '==============================================', cls: 'dim' },
+      { text: 'SYSTEM SHUTDOWN INITIATED', cls: 'warn' },
+      { text: 'Terminating active windows ......... OK', cls: 'ok' },
+      { text: 'Parking 3D runtime and void meshes . OK', cls: 'ok' },
+      { text: 'Power rails dropping ............... OK', cls: 'ok' },
+      { text: 'Display signal lost.', cls: 'warn' },
+      { text: 'It is now safe to reboot.', cls: 'dim' },
+    ];
+
+    boot.innerHTML = '';
+    boot.style.display = 'flex';
+    boot.style.opacity = '1';
+    boot.style.background = 'transparent';
+
+    var i = 0;
+    (function pushLine() {
+      if (i >= lines.length) {
+        setTimeout(function () {
+          boot.innerHTML = '';
+          boot.style.background = '#000';
+          onDone();
+        }, 240);
+        return;
+      }
+
+      var line = lines[i++];
+      var el = document.createElement('div');
+      el.className = 'boot-line ' + line.cls;
+      el.textContent = line.text;
+      boot.appendChild(el);
+      boot.scrollTop = boot.scrollHeight;
+      setTimeout(pushLine, 110);
+    }());
+  }
+
+  function applyPoweredOffState() {
+    var desktop = document.getElementById('desktop');
+    var boot = document.getElementById('boot-screen');
+    if (desktop) desktop.style.display = 'none';
+    if (boot) {
+      boot.style.display = 'flex';
+      boot.style.opacity = '1';
+      boot.style.background = '#000';
+    }
+  }
+
+  function startBootSequenceNoReload() {
+    if (powerState !== 'off') return;
+    powerState = 'booting';
+    powerInteractionEnabled = false;
+    setPowerHovering(false);
+
+    var boot = document.getElementById('boot-screen');
+    var desktop = document.getElementById('desktop');
+    if (!boot || !desktop) {
+      powerState = 'on';
+      return;
+    }
+
+    var lines = [
+      { text: 'LJSYS POWER RESTORE', cls: 'header' },
+      { text: 'Bringing rails online ............. OK', cls: 'ok' },
+      { text: 'VRAM handshake .................... OK', cls: 'ok' },
+      { text: 'Desktop shell wakeup .............. OK', cls: 'ok' },
+      { text: 'Reboot complete.', cls: 'dim' },
+      { text: 'C:\\LJSYS> _', cls: 'cursor' },
+    ];
+
+    boot.innerHTML = '';
+    boot.style.display = 'flex';
+    boot.style.opacity = '1';
+    boot.style.background = 'transparent';
+
+    var i = 0;
+    (function pushLine() {
+      if (i >= lines.length) {
+        setTimeout(function () {
+          boot.style.display = 'none';
+          boot.style.background = 'transparent';
+          desktop.style.display = 'block';
+          setDesktopIconVisibility(true);
+          powerState = 'on';
+          powerInteractionEnabled = true;
+        }, 260);
+        return;
+      }
+
+      var line = lines[i++];
+      var el = document.createElement('div');
+      el.className = 'boot-line ' + line.cls;
+      el.textContent = line.text;
+      boot.appendChild(el);
+      boot.scrollTop = boot.scrollHeight;
+      setTimeout(pushLine, 95);
+    }());
   }
 
   // ── PROJECT ICON MESHES (auto-grid, isometric spin) ────────
@@ -578,6 +1042,25 @@ var Scene = (function () {
         '<div class="debug-group"><label>Blink Speed:</label><input type="number" id="debug-rledSpeed" step="0.5" value="' + redLedConfig.blinkSpeed + '" class="debug-num"></div>' +
       '</div>' +
       '<div class="debug-divider"></div>' +
+      '<div class="debug-section-title">POWER BUTTON (2D)</div>' +
+      '<div class="debug-controls">' +
+        '<div class="debug-group"><label>X:</label><input type="number" id="debug-pbtnX" step="0.05" value="' + powerButtonConfig.posX + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Y:</label><input type="number" id="debug-pbtnY" step="0.05" value="' + powerButtonConfig.posY + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Z:</label><input type="number" id="debug-pbtnZ" step="0.05" value="' + powerButtonConfig.posZ + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Width:</label><input type="number" id="debug-pbtnW" step="0.01" min="0.01" value="' + powerButtonConfig.width + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Height:</label><input type="number" id="debug-pbtnH" step="0.01" min="0.01" value="' + powerButtonConfig.height + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Outline:</label><input type="checkbox" id="debug-pbtnOutline" ' + (powerButtonConfig.outlineVisibleDebug ? 'checked' : '') + '></div>' +
+      '</div>' +
+      '<div class="debug-divider"></div>' +
+      '<div class="debug-section-title">POWER HOVER FINGER</div>' +
+      '<div class="debug-controls">' +
+        '<div class="debug-group"><label>Size (px):</label><input type="number" id="debug-fingerSize" step="1" min="24" value="' + powerFingerConfig.sizePx + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Offset X (px):</label><input type="number" id="debug-fingerOffX" step="1" value="' + powerFingerConfig.offsetX + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Offset Y (px):</label><input type="number" id="debug-fingerOffY" step="1" value="' + powerFingerConfig.offsetY + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Distance (px):</label><input type="number" id="debug-fingerDist" step="1" min="1" value="' + powerFingerConfig.distancePx + '" class="debug-num"></div>' +
+        '<div class="debug-group"><label>Force Show:</label><input type="checkbox" id="debug-fingerForce" ' + (powerFingerConfig.forceVisibleDebug ? 'checked' : '') + '></div>' +
+      '</div>' +
+      '<div class="debug-divider"></div>' +
       '<div class="debug-section-title">OVERLAY (2D UI)</div>' +
       '<div class="debug-controls">' +
         '<div class="debug-group">' +
@@ -675,6 +1158,66 @@ var Scene = (function () {
       updateDebugDisplay();
     });
 
+    // 2D power-button controls
+    ['pbtnX', 'pbtnY', 'pbtnZ'].forEach(function(key) {
+      var map = { pbtnX:'posX', pbtnY:'posY', pbtnZ:'posZ' };
+      var input = document.getElementById('debug-' + key);
+      input.addEventListener('input', function(e) {
+        powerButtonConfig[map[key]] = parseFloat(e.target.value) || 0;
+        if (powerButton2D) {
+          powerButton2D.position.set(powerButtonConfig.posX, powerButtonConfig.posY, powerButtonConfig.posZ);
+        }
+        updatePowerButtonOutline();
+        updateDebugDisplay();
+      });
+    });
+    ['pbtnW', 'pbtnH'].forEach(function(key) {
+      var map = { pbtnW:'width', pbtnH:'height' };
+      var input = document.getElementById('debug-' + key);
+      input.addEventListener('input', function(e) {
+        var v = parseFloat(e.target.value);
+        powerButtonConfig[map[key]] = (!isNaN(v) && v > 0) ? v : powerButtonConfig[map[key]];
+        if (powerButton2D) {
+          powerButton2D.geometry.dispose();
+          powerButton2D.geometry = new THREE.PlaneGeometry(powerButtonConfig.width, powerButtonConfig.height);
+        }
+        if (powerButtonOutline && powerButton2D) {
+          powerButtonOutline.geometry.dispose();
+          powerButtonOutline.geometry = new THREE.EdgesGeometry(powerButton2D.geometry);
+        }
+        updatePowerButtonOutline();
+        updateDebugDisplay();
+      });
+    });
+    document.getElementById('debug-pbtnOutline').addEventListener('change', function(e) {
+      powerButtonConfig.outlineVisibleDebug = !!e.target.checked;
+      updatePowerButtonOutline();
+      updateDebugDisplay();
+    });
+
+    ['fingerSize', 'fingerOffX', 'fingerOffY', 'fingerDist'].forEach(function (key) {
+      var input = document.getElementById('debug-' + key);
+      input.addEventListener('input', function (e) {
+        var v = parseFloat(e.target.value);
+        if (key === 'fingerSize') {
+          if (!isNaN(v) && v >= 24) powerFingerConfig.sizePx = v;
+        } else if (key === 'fingerOffX') {
+          powerFingerConfig.offsetX = isNaN(v) ? 0 : v;
+        } else if (key === 'fingerOffY') {
+          powerFingerConfig.offsetY = isNaN(v) ? 0 : v;
+        } else if (key === 'fingerDist') {
+          if (!isNaN(v) && v >= 1) powerFingerConfig.distancePx = v;
+        }
+        applyPowerFingerDebugStyles();
+        updateDebugDisplay();
+      });
+    });
+    document.getElementById('debug-fingerForce').addEventListener('change', function (e) {
+      powerFingerConfig.forceVisibleDebug = !!e.target.checked;
+      syncPowerFingerVisibility();
+      updateDebugDisplay();
+    });
+
     document.getElementById('debug-copy-btn').addEventListener('click', copyDebugSettings);
     updateDebugDisplay();
   }
@@ -700,6 +1243,12 @@ var Scene = (function () {
     localCorners[3].set( w / 2, -h / 2, z);
   }
 
+  function updatePowerButtonOutline() {
+    if (!powerButtonOutline) return;
+    powerButtonOutline.position.set(powerButtonConfig.posX, powerButtonConfig.posY, powerButtonConfig.posZ + 0.001);
+    powerButtonOutline.visible = !!(debugMode && powerButtonConfig.outlineVisibleDebug);
+  }
+
   function updateDebugDisplay() {
     var display = document.getElementById('debug-settings-display');
     if (display) {
@@ -709,7 +1258,9 @@ var Scene = (function () {
         'SCREEN: W=' + overlayConfig.screenW.toFixed(2) + ' H=' + overlayConfig.screenH.toFixed(2) + ' Z=' + overlayConfig.screenZ.toFixed(2) + '\n' +
         'Overlay: pad=' + overlayConfig.padBottom + ' offY=' + overlayConfig.offsetY + ' scale=' + overlayConfig.uiScale.toFixed(2) + '\n' +
         'Green LED: (' + ledConfig.posX.toFixed(2) + ', ' + ledConfig.posY.toFixed(2) + ', ' + ledConfig.posZ.toFixed(2) + ')\n' +
-        'Red LED: (' + redLedConfig.posX.toFixed(2) + ', ' + redLedConfig.posY.toFixed(2) + ', ' + redLedConfig.posZ.toFixed(2) + ')  speed=' + redLedConfig.blinkSpeed.toFixed(1);
+        'Red LED: (' + redLedConfig.posX.toFixed(2) + ', ' + redLedConfig.posY.toFixed(2) + ', ' + redLedConfig.posZ.toFixed(2) + ')  speed=' + redLedConfig.blinkSpeed.toFixed(1) + '\n' +
+        'Power Button (2D): (' + powerButtonConfig.posX.toFixed(2) + ', ' + powerButtonConfig.posY.toFixed(2) + ', ' + powerButtonConfig.posZ.toFixed(2) + ') size=' + powerButtonConfig.width.toFixed(2) + 'x' + powerButtonConfig.height.toFixed(2) + ' outline=' + (powerButtonConfig.outlineVisibleDebug ? 'on' : 'off') + '\n' +
+        'Finger Hover: size=' + powerFingerConfig.sizePx.toFixed(0) + ' offset=(' + powerFingerConfig.offsetX.toFixed(0) + ', ' + powerFingerConfig.offsetY.toFixed(0) + ') dist=' + powerFingerConfig.distancePx.toFixed(0) + ' onBtn=' + powerFingerConfig.onButtonRadiusPx.toFixed(0) + ' force=' + (powerFingerConfig.forceVisibleDebug ? 'on' : 'off');
     }
   }
 
@@ -728,7 +1279,11 @@ var Scene = (function () {
       '// Green LED\n' +
       'ledConfig: { posX:' + ledConfig.posX.toFixed(2) + ', posY:' + ledConfig.posY.toFixed(2) + ', posZ:' + ledConfig.posZ.toFixed(2) + ' }\n' +
       '// Red LED\n' +
-      'redLedConfig: { posX:' + redLedConfig.posX.toFixed(2) + ', posY:' + redLedConfig.posY.toFixed(2) + ', posZ:' + redLedConfig.posZ.toFixed(2) + ', blinkSpeed:' + redLedConfig.blinkSpeed.toFixed(1) + ' }';
+      'redLedConfig: { posX:' + redLedConfig.posX.toFixed(2) + ', posY:' + redLedConfig.posY.toFixed(2) + ', posZ:' + redLedConfig.posZ.toFixed(2) + ', blinkSpeed:' + redLedConfig.blinkSpeed.toFixed(1) + ' }\n' +
+      '// Power Button (2D)\n' +
+      'powerButtonConfig: { posX:' + powerButtonConfig.posX.toFixed(2) + ', posY:' + powerButtonConfig.posY.toFixed(2) + ', posZ:' + powerButtonConfig.posZ.toFixed(2) + ', width:' + powerButtonConfig.width.toFixed(2) + ', height:' + powerButtonConfig.height.toFixed(2) + ', outlineVisibleDebug:' + (powerButtonConfig.outlineVisibleDebug ? 'true' : 'false') + ' }\n' +
+      '// Finger Hover\n' +
+      'powerFingerConfig: { sizePx:' + powerFingerConfig.sizePx.toFixed(0) + ', offsetX:' + powerFingerConfig.offsetX.toFixed(0) + ', offsetY:' + powerFingerConfig.offsetY.toFixed(0) + ', distancePx:' + powerFingerConfig.distancePx.toFixed(0) + ', onButtonRadiusPx:' + powerFingerConfig.onButtonRadiusPx.toFixed(0) + ', forceVisibleDebug:' + (powerFingerConfig.forceVisibleDebug ? 'true' : 'false') + ' }';
     
     navigator.clipboard.writeText(settings).then(function() {
       if (typeof Desktop !== 'undefined' && Desktop.toast) {
@@ -742,11 +1297,21 @@ var Scene = (function () {
   }
 
   function toggleDebugPanel() {
+    if (!isDebugMenusEnabled()) {
+      debugMode = false;
+      var disabledPanel = document.getElementById('debug-positioning-panel');
+      if (disabledPanel) disabledPanel.style.display = 'none';
+      updatePowerButtonOutline();
+      syncPowerFingerVisibility();
+      return;
+    }
     debugMode = !debugMode;
     var panel = document.getElementById('debug-positioning-panel');
     if (panel) {
       panel.style.display = debugMode ? 'block' : 'none';
     }
+    updatePowerButtonOutline();
+    syncPowerFingerVisibility();
   }
 
   // ── VOID ICON HTML OVERLAY (project icon labels + click targets) ──
@@ -1026,18 +1591,26 @@ var Scene = (function () {
 
     // Green LED pulse
     if (powerLED) {
-      var intensity = 0.5 + ledConfig.blinkIntensity * Math.sin(t * ledConfig.blinkSpeed);
-      var r = ledConfig.colorR * intensity;
-      var g = ledConfig.colorG * intensity;
-      var b = ledConfig.colorB * intensity;
-      powerLED.material.color.setRGB(r, g, b);
+      if (powerState === 'on') {
+        var intensity = 0.5 + ledConfig.blinkIntensity * Math.sin(t * ledConfig.blinkSpeed);
+        var r = ledConfig.colorR * intensity;
+        var g = ledConfig.colorG * intensity;
+        var b = ledConfig.colorB * intensity;
+        powerLED.material.color.setRGB(r, g, b);
+      } else {
+        powerLED.material.color.setRGB(0, 0, 0);
+      }
     }
 
     // Red LED blink (sharp on/off)
     if (redLED) {
-      var redOn = Math.sin(t * redLedConfig.blinkSpeed) > 0;
-      var redI  = redOn ? redLedConfig.blinkIntensity : 0.04;
-      redLED.material.color.setRGB(redI, 0, 0);
+      if (powerState === 'on') {
+        var redOn = Math.sin(t * redLedConfig.blinkSpeed) > 0;
+        var redI  = redOn ? redLedConfig.blinkIntensity : 0.04;
+        redLED.material.color.setRGB(redI, 0, 0);
+      } else {
+        redLED.material.color.setRGB(0, 0, 0);
+      }
     }
 
     // Rotate project icon meshes
@@ -1056,6 +1629,9 @@ var Scene = (function () {
 
     // Keep void particles alive with gentle parallax drift.
     animateVoidParticles(nowMs);
+    if (!updateStartupPowerOnAnimation(nowMs)) {
+      updatePowerFinger();
+    }
 
     jitterCnt++;
     if (jitterCnt % 8 === 0) applyJitter();
@@ -1302,6 +1878,8 @@ var Scene = (function () {
     init: init,
     screenRect: screenRect,
     showProjectMeshes: showProjectMeshes,
+    setPowerButtonEnabled: function (enabled) { powerInteractionEnabled = !!enabled; },
+    playStartupPowerOnAnimation: playStartupPowerOnAnimation,
     toggleDebugPanel: toggleDebugPanel,
     // PSX shader uniform access (for potential debug controls)
     psxUniforms: function() { return psxPostMaterial ? psxPostMaterial.uniforms : null; },

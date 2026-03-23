@@ -21,6 +21,10 @@ const SITE_DATA = {
 		systemName: "LJSYS v2.0",
 	},
 
+	debug: {
+		menusEnabled: false,
+	},
+
 	assets: {
 		monitorMeshFile: "computer.glb",
 	},
