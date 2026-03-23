@@ -148,17 +148,27 @@ var Windows = (function () {
     return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
   }
 
+  function getTaskbarTop() {
+    var tb = document.getElementById('taskbar');
+    if (!tb) return window.innerHeight;
+    var rect = tb.getBoundingClientRect();
+    return (rect && rect.height > 0) ? rect.top : window.innerHeight;
+  }
+
   function open(key) {
     var win = document.getElementById('win-' + key);
     if (!win) return;
     if (!win.classList.contains('open')) {
       var r = getDesktopRect();
       if (key === 'project') {
-        // Fill the desktop area (screen overlay minus taskbar)
+        // Fill desktop area, but never let initial spawn extend below taskbar top.
+        var taskbarTop = getTaskbarTop();
+        var safeBottom = Math.min(r.top + r.height, taskbarTop);
+        var safeHeight = Math.max(220, safeBottom - r.top);
         win.style.left   = r.left + 'px';
         win.style.top    = r.top + 'px';
         win.style.width  = r.width + 'px';
-        win.style.height = r.height + 'px';
+        win.style.height = safeHeight + 'px';
       } else {
         var offsets = {about:[28,28], contact:[44,44], cv:[60,60], help:[22,22]};
         var off = offsets[key] || [28,28];
@@ -479,13 +489,17 @@ var Windows = (function () {
     if (!proj) return;
     var tags  = proj.tags.map(function(t){ return '<span class="itag">' + t + '</span>'; }).join('');
     var paras = proj.fullDesc.map(function(p){ return '<p>' + p + '</p>'; }).join('');
+    var hasPlayableUrl = typeof proj.playUrl === 'string' && proj.playUrl.trim() !== '' && proj.playUrl !== '#';
+    var linkHtml = hasPlayableUrl
+      ? ('<a href="' + proj.playUrl + '" target="_blank" class="info-link">\u25ba VIEW PROJECT</a>')
+      : '';
     document.getElementById('proj-info-content').innerHTML =
       '<h1>' + proj.title + '</h1>' +
       '<div class="info-sub">' + proj.type + ' \u00b7 ' + proj.year + '</div>' +
       paras +
       '<div class="info-tags">' + tags + '</div>' +
       '<div class="info-meta">Platform: ' + proj.platform + '<br>Duration: ' + proj.duration + '</div>' +
-      '<a href="' + proj.playUrl + '" target="_blank" class="info-link">\u25ba VIEW PROJECT</a>' +
+      linkHtml +
       '<div class="info-hint blink">[ HOVER ICON TO PREVIEW AGAIN ]</div>';
     setTimeout(function () { initProjInfoScrollbar(); }, 50);
   }
@@ -589,12 +603,13 @@ var Windows = (function () {
     });
     document.addEventListener('mousemove', function(e) {
       if (!_drag) return;
-      var r = getDesktopRect();
       var rect = _drag.getBoundingClientRect();
-      var xMin = r.left;
-      var yMin = r.top;
-      var xMax = (r.left + r.width) - rect.width;
-      var yMax = (r.top + r.height) - rect.height;
+      var grip = 48;
+      var titleBar = 32;
+      var xMin = -rect.width + grip;
+      var yMin = 0;
+      var xMax = window.innerWidth - grip;
+      var yMax = window.innerHeight - titleBar;
       if (xMax < xMin) xMax = xMin;
       if (yMax < yMin) yMax = yMin;
 

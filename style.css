@@ -216,11 +216,20 @@ body {
 
 /* ── BOOT SCREEN ──────────────────────────────────────────── */
 #boot-screen {
-  position: absolute; inset: 0; background: transparent; z-index: 800;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--tbh);
+  background: transparent; z-index: 800;
   display: flex; flex-direction: column; align-items: flex-start;
   justify-content: flex-start; padding: 10px 13px; gap: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-width: none;
 }
+#boot-screen::-webkit-scrollbar { display: none; }
 .boot-line {
   font-family: var(--mono); font-size: 10px; color: var(--ph);
   white-space: pre; line-height: 1.55; min-height: 1.55em;
@@ -261,7 +270,9 @@ body {
 .desk-icon-lbl {
   font-family: var(--mono); font-size: 10px; color: var(--ph);
   margin-top: 3px; line-height: 1.2; text-shadow: 0 0 6px var(--ph);
-  word-break: break-all; display: block;
+  white-space: nowrap;
+  word-break: normal;
+  display: block;
 }
 
 /* ── TASKBAR ──────────────────────────────────────────────── */

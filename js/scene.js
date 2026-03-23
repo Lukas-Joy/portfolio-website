@@ -65,8 +65,8 @@ var Scene = (function () {
   };
 
   // Screen face corners in local monitor space
-  var SCREEN_W   = 3.20;
-  var SCREEN_H   = 0.75;
+  var SCREEN_W   = 3.25;
+  var SCREEN_H   = 0.40;
   var SCREEN_Z   = 1.00;
 
   var localCorners = [
