@@ -203,5 +203,19 @@ Uses a HTML + CSS + JS with no backend a low-carbon architecture.
 ---
 
 ## Reflection
+ 
+### What I learned
+ 
+I learned a lot about javascript and in particular about three.js and how 3D renderering works for websites. I had a lot of trouble early on with getting the different components to sit in the right space with there textures and scale making bigger differences to how they looked in relation to the website as a whole.
+ 
+### What I'd do differently
+ 
+I lost a lot of time making a system that worked in isolation but didn't merge with the rest of the webiste. If I started again tomorrow I'd spend more time at the start just mapping out how each piece of the site connects, both technically and logically. So the decisions I make early don't create problems I have to undo later.
+ 
+### What I'm most proud of
 
-Too be added
+The overall world building on the website feels quite complete. The fake computer with fictional specs and the way the whole site feels like a desktop OS system of hte past. It would've been perfectly fine portfolio without any of it. But the details make if feel like  a place not just a website, which was always the goal. I wanted someone to land on the site and immediately understand what kind of designer I am before they had even clicked on anything.
+ 
+### Where this sits in my practice
+
+This project joins together most of the design ideas that I follow in both game design and industrial design, and show the aesethics and inpsiration that are found in most of my work. It also made me think about how projects work together as a whole system rather than seperate parts.
