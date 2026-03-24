@@ -96,7 +96,7 @@ var Scene = (function () {
 
   // Screen face corners in local monitor space
   var SCREEN_W   = 3.25;
-  var SCREEN_H   = 0.40;
+  var SCREEN_H   = 0.75;
   var SCREEN_Z   = 1.00;
 
   var localCorners = [
@@ -118,6 +118,20 @@ var Scene = (function () {
   };
 
   var screenRect = { left: 0, top: 0, width: 0, height: 0 };
+
+  function getViewportSize() {
+    var vv = window.visualViewport;
+    if (vv && vv.width && vv.height) {
+      return {
+        width: vv.width,
+        height: vv.height,
+      };
+    }
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }
 
   // Monitor mesh configuration
   var MONITOR_SCALE = 1.4;    // Adjust if mesh needs scaling
@@ -151,14 +165,15 @@ var Scene = (function () {
   // ── INIT ──────────────────────────────────────────────────
   function init() {
     var canvas = document.getElementById('three-canvas');
+    var viewport = getViewportSize();
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport.width, viewport.height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setClearColor(COL_BG, 1);
 
     threeScene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(42, viewport.width / viewport.height, 0.1, 100);
     camera.position.copy(cameraViews.default.pos);
     camera.lookAt(cameraViews.default.target);
 
@@ -186,6 +201,10 @@ var Scene = (function () {
     }
 
     window.addEventListener('resize', onResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onResize, { passive: true });
+      window.visualViewport.addEventListener('scroll', onResize, { passive: true });
+    }
 
     // Keyboard shortcut to toggle debug panel (press 'D')
     if (isDebugMenusEnabled()) {
@@ -235,9 +254,10 @@ var Scene = (function () {
     // Create a high-resolution canvas that matches screen-overlay size
     // Use 2x the viewport size for better quality on the 3D mesh
     var scale = 2;
+    var viewport = getViewportSize();
     screenCanvas = document.createElement('canvas');
-    screenCanvas.width = window.innerWidth * scale;
-    screenCanvas.height = window.innerHeight * scale;
+    screenCanvas.width = Math.max(1, Math.floor(viewport.width * scale));
+    screenCanvas.height = Math.max(1, Math.floor(viewport.height * scale));
     screenCanvas.style.display = 'none';
     screenCanvas.setAttribute('aria-hidden', 'true');
     document.body.appendChild(screenCanvas);
@@ -257,16 +277,17 @@ var Scene = (function () {
 
     // Use html2canvas to render the overlay to our canvas
     // This captures the current state of all DOM elements
+    var viewport = getViewportSize();
     html2canvas(screenOverlay, {
       canvas: screenCanvas,
       scale: 2,
       backgroundColor: null,
       allowTaint: true,
       useCORS: true,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      windowHeight: window.innerHeight,
-      windowWidth: window.innerWidth,
+      width: viewport.width,
+      height: viewport.height,
+      windowHeight: viewport.height,
+      windowWidth: viewport.width,
     }).then(function(canvas) {
       // Update the texture
       screenTexture.needsUpdate = true;
@@ -524,6 +545,8 @@ var Scene = (function () {
   }
 
   function getPowerButtonScreenBounds() {
+      var viewport = getViewportSize();
+
     if (!camera || !powerButton2D || !powerButton2D.geometry) return null;
 
     powerButton2D.updateMatrixWorld(true);
@@ -544,8 +567,8 @@ var Scene = (function () {
 
     for (var i = 0; i < corners.length; i++) {
       var wp = corners[i].clone().applyMatrix4(powerButton2D.matrixWorld).project(camera);
-      var sx = (wp.x + 1) * 0.5 * window.innerWidth;
-      var sy = (-wp.y + 1) * 0.5 * window.innerHeight;
+      var sx = (wp.x + 1) * 0.5 * viewport.width;
+      var sy = (-wp.y + 1) * 0.5 * viewport.height;
       if (sx < minX) minX = sx;
       if (sx > maxX) maxX = sx;
       if (sy < minY) minY = sy;
@@ -723,41 +746,62 @@ var Scene = (function () {
       return;
     }
 
-    var lines = [
-      { text: 'LJSYS POWER CONTROL', cls: 'header' },
-      { text: '==============================================', cls: 'dim' },
-      { text: 'SYSTEM SHUTDOWN INITIATED', cls: 'warn' },
-      { text: 'Terminating active windows ......... OK', cls: 'ok' },
-      { text: 'Parking 3D runtime and void meshes . OK', cls: 'ok' },
-      { text: 'Power rails dropping ............... OK', cls: 'ok' },
-      { text: 'Display signal lost.', cls: 'warn' },
-      { text: 'It is now safe to reboot.', cls: 'dim' },
-    ];
+    var shutdownCfg = (typeof SITE_DATA !== 'undefined' && SITE_DATA.shutdownSequence)
+      ? SITE_DATA.shutdownSequence
+      : {};
 
     boot.innerHTML = '';
     boot.style.display = 'flex';
     boot.style.opacity = '1';
     boot.style.background = 'transparent';
+    boot.style.transition = '';
+    boot.classList.remove('boot-screen-splashing', 'shutdown-active', 'shutdown-fading');
+    boot.classList.add('shutdown-active');
 
-    var i = 0;
-    (function pushLine() {
-      if (i >= lines.length) {
-        setTimeout(function () {
-          boot.innerHTML = '';
-          boot.style.background = '#000';
-          onDone();
-        }, 240);
-        return;
-      }
+    var panel = document.createElement('div');
+    panel.className = 'shutdown-panel';
 
-      var line = lines[i++];
-      var el = document.createElement('div');
-      el.className = 'boot-line ' + line.cls;
-      el.textContent = line.text;
-      boot.appendChild(el);
-      boot.scrollTop = boot.scrollHeight;
-      setTimeout(pushLine, 110);
-    }());
+    var logo = document.createElement('div');
+    logo.className = 'shutdown-logo';
+    logo.textContent = shutdownCfg.title || 'ASTRAOS';
+
+    var status = document.createElement('div');
+    status.className = 'shutdown-status';
+    status.textContent = shutdownCfg.status || 'Shutting down';
+
+    var dots = document.createElement('div');
+    dots.className = 'shutdown-dots';
+    dots.innerHTML = '<span></span><span></span><span></span>';
+
+    var sub = document.createElement('div');
+    sub.className = 'shutdown-sub';
+    sub.textContent = shutdownCfg.subStatus || 'Saving your session in the void';
+
+    var footer = document.createElement('div');
+    footer.className = 'shutdown-footer';
+    footer.textContent = shutdownCfg.footer || 'It is now safe to power off this workstation.';
+
+    panel.appendChild(logo);
+    panel.appendChild(status);
+    panel.appendChild(dots);
+    panel.appendChild(sub);
+    panel.appendChild(footer);
+    boot.appendChild(panel);
+
+    var holdMs = shutdownCfg.holdMs || 1600;
+    var outMs = 360;
+    setTimeout(function () {
+      panel.classList.add('is-exiting');
+      boot.classList.add('shutdown-fading');
+    }, holdMs);
+
+    setTimeout(function () {
+      boot.classList.remove('shutdown-fading', 'shutdown-active');
+      boot.style.transition = '';
+      boot.innerHTML = '';
+      boot.style.background = '#000';
+      onDone();
+    }, holdMs + outMs + 120);
   }
 
   function applyPoweredOffState() {
@@ -784,23 +828,27 @@ var Scene = (function () {
       return;
     }
 
-    var lines = [
-      { text: 'LJSYS POWER RESTORE', cls: 'header' },
-      { text: 'Bringing rails online ............. OK', cls: 'ok' },
-      { text: 'VRAM handshake .................... OK', cls: 'ok' },
-      { text: 'Desktop shell wakeup .............. OK', cls: 'ok' },
-      { text: 'Reboot complete.', cls: 'dim' },
-      { text: 'C:\\LJSYS> _', cls: 'cursor' },
+    var startupCfg = (typeof SITE_DATA !== 'undefined' && SITE_DATA.startupSequence)
+      ? SITE_DATA.startupSequence
+      : {};
+    var splashCfg = startupCfg.splash || {};
+    var lines = startupCfg.resumeLines || [
+      { text: 'ASTRAOS POWER RESTORE', style: 'header' },
+      { text: 'Bringing rails online ............. OK', style: 'ok' },
+      { text: 'VRAM handshake .................... OK', style: 'ok' },
+      { text: 'Desktop shell wakeup .............. OK', style: 'ok' },
+      { text: 'Reboot complete.', style: 'dim' },
+      { text: 'C:\\ASTRAOS> _', style: 'cursor' },
     ];
 
     boot.innerHTML = '';
     boot.style.display = 'flex';
     boot.style.opacity = '1';
     boot.style.background = 'transparent';
+    boot.classList.remove('shutdown-active', 'shutdown-fading');
 
-    var i = 0;
-    (function pushLine() {
-      if (i >= lines.length) {
+    showStartupSplash(boot, splashCfg, function () {
+      pushBootLines(boot, lines, function () {
         setTimeout(function () {
           boot.style.display = 'none';
           boot.style.background = 'transparent';
@@ -809,16 +857,107 @@ var Scene = (function () {
           powerState = 'on';
           powerInteractionEnabled = true;
         }, 260);
+      });
+    });
+  }
+
+  function showStartupSplash(boot, splashCfg, onDone) {
+    boot.innerHTML = '';
+    boot.classList.add('boot-screen-splashing');
+
+    var shell = document.createElement('div');
+    shell.className = 'startup-splash';
+
+    var artWrap = document.createElement('div');
+    artWrap.className = 'startup-art';
+
+    var hasArt = false;
+    if (splashCfg && splashCfg.asciiArt && splashCfg.asciiArt.length) {
+      var ascii = document.createElement('pre');
+      ascii.className = 'startup-art-ascii';
+      ascii.textContent = splashCfg.asciiArt.join('\n');
+      ascii.classList.add('astraos-reveal');
+      artWrap.appendChild(ascii);
+      hasArt = true;
+    }
+
+    if (!hasArt) {
+      var fallback = document.createElement('pre');
+      fallback.className = 'startup-art-ascii';
+      fallback.textContent = '[ ASTRAOS ]';
+      fallback.classList.add('astraos-reveal');
+      artWrap.appendChild(fallback);
+    }
+
+    var title = document.createElement('div');
+    title.className = 'startup-title';
+    title.textContent = (splashCfg && splashCfg.title) ? splashCfg.title : 'ASTRAOS STARTUP';
+
+    var subtitle = document.createElement('div');
+    subtitle.className = 'startup-subtitle';
+    subtitle.textContent = (splashCfg && splashCfg.subtitle) ? splashCfg.subtitle : 'Lukas Joy Workstation';
+
+    var loading = document.createElement('div');
+    loading.className = 'startup-loading';
+    loading.innerHTML = ((splashCfg && splashCfg.loadingText) ? splashCfg.loadingText : 'Starting desktop services') + '<span class="startup-loading-dots"><span></span><span></span><span></span></span>';
+
+    shell.appendChild(artWrap);
+    shell.appendChild(title);
+    shell.appendChild(subtitle);
+    shell.appendChild(loading);
+    boot.appendChild(shell);
+
+    var holdMs = Math.max(1800, (splashCfg && Number(splashCfg.holdMs)) ? Number(splashCfg.holdMs) : 0);
+    var introMs = Math.max(0, (splashCfg && Number(splashCfg.introMs)) ? Number(splashCfg.introMs) : 900);
+    var outMs = 300;
+    setTimeout(function () {
+      shell.classList.add('is-exiting');
+      setTimeout(function () {
+        boot.classList.remove('boot-screen-splashing');
+        onDone();
+      }, outMs);
+    }, introMs + (holdMs || 1800));
+  }
+
+  function pushBootLines(boot, lines, onDone) {
+    boot.innerHTML = '';
+
+    var i = 0;
+    (function pushLine() {
+      if (i >= lines.length) {
+        onDone();
         return;
       }
 
       var line = lines[i++];
       var el = document.createElement('div');
-      el.className = 'boot-line ' + line.cls;
+
+      if (line.style === 'gap') {
+        el.className = 'boot-line';
+        el.innerHTML = '&nbsp;';
+        boot.appendChild(el);
+        setTimeout(pushLine, 5);
+        return;
+      }
+
+      if (line.style === 'sep') {
+        el.className = 'boot-line dim';
+        el.textContent = line.text;
+        boot.appendChild(el);
+        setTimeout(pushLine, 5);
+        return;
+      }
+
+      el.className = 'boot-line' +
+        (line.style === 'header' ? ' header' : '') +
+        (line.style === 'ok' ? ' ok' : '') +
+        (line.style === 'warn' ? ' warn' : '') +
+        (line.style === 'dim' ? ' dim' : '') +
+        (line.style === 'cursor' ? ' cursor' : '');
       el.textContent = line.text;
       boot.appendChild(el);
       boot.scrollTop = boot.scrollHeight;
-      setTimeout(pushLine, 95);
+      setTimeout(pushLine, line.style === 'header' ? 18 : line.style === 'cursor' ? 60 : 95);
     }());
   }
 
@@ -934,9 +1073,15 @@ var Scene = (function () {
 
   // ── RESIZE ────────────────────────────────────────────────
   function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    var viewport = getViewportSize();
+    camera.aspect = viewport.width / viewport.height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(viewport.width, viewport.height);
+
+    if (screenCanvas) {
+      screenCanvas.width = Math.max(1, Math.floor(viewport.width * 2));
+      screenCanvas.height = Math.max(1, Math.floor(viewport.height * 2));
+    }
 
     // Keep post-fx resolution fixed at PSX spec (upscaling is the point)
     // but update the post material's resolution uniform to match the render target
@@ -950,14 +1095,16 @@ var Scene = (function () {
   function updateOverlay() {
     monitorGroup.updateMatrixWorld(true);
 
+    var viewport = getViewportSize();
+
     var minX = Infinity, maxX = -Infinity;
     var minY = Infinity, maxY = -Infinity;
 
     for (var i = 0; i < localCorners.length; i++) {
       var world = localCorners[i].clone().applyMatrix4(monitorGroup.matrixWorld);
       var ndc   = world.project(camera);
-      var sx    = (ndc.x + 1) / 2 * window.innerWidth;
-      var sy    = (-ndc.y + 1) / 2 * window.innerHeight;
+      var sx    = (ndc.x + 1) / 2 * viewport.width;
+      var sy    = (-ndc.y + 1) / 2 * viewport.height;
       if (sx < minX) minX = sx;
       if (sx > maxX) maxX = sx;
       if (sy < minY) minY = sy;
@@ -967,19 +1114,23 @@ var Scene = (function () {
     var overlay = document.getElementById('screen-overlay');
     var oX = overlayConfig.offsetX;
     var oY = overlayConfig.offsetY;
-    var pad = overlayConfig.padBottom;
-    var w  = maxX - minX;
-    var h  = maxY - minY + pad;
+    var projectedW = maxX - minX;
+    var projectedH = maxY - minY;
+    var pad = Math.max(80, Math.min(overlayConfig.padBottom, viewport.height * 0.33));
+    var w = Math.max(24, Math.min(projectedW, viewport.width * 1.2));
+    var h = Math.max(24, Math.min(projectedH + pad, viewport.height * 1.2));
+    var left = Math.max(-viewport.width * 0.15, Math.min(minX + oX, viewport.width - 24));
+    var top = Math.max(-viewport.height * 0.15, Math.min(minY + oY, viewport.height - 24));
     if (overlay) {
-      overlay.style.left   = (minX + oX) + 'px';
-      overlay.style.top    = (minY + oY) + 'px';
+      overlay.style.left   = left + 'px';
+      overlay.style.top    = top + 'px';
       overlay.style.width  = w + 'px';
       overlay.style.height = h + 'px';
       overlay.style.transform = 'scale(' + overlayConfig.uiScale + ')';
       overlay.style.transformOrigin = 'center center';
     }
-    screenRect.left   = minX + oX;
-    screenRect.top    = minY + oY;
+    screenRect.left   = left;
+    screenRect.top    = top;
     screenRect.width  = w;
     screenRect.height = h;
   }
@@ -1402,6 +1553,7 @@ var Scene = (function () {
   }
 
   function collectProjectedMeshPoints(root) {
+    var viewport = getViewportSize();
     var points = [];
     root.updateMatrixWorld(true);
 
@@ -1417,8 +1569,8 @@ var Scene = (function () {
         tmpVec3A.project(camera);
         if (tmpVec3A.z < -1.2 || tmpVec3A.z > 1.2) continue;
         points.push({
-          x: (tmpVec3A.x + 1) * 0.5 * window.innerWidth,
-          y: (-tmpVec3A.y + 1) * 0.5 * window.innerHeight,
+          x: (tmpVec3A.x + 1) * 0.5 * viewport.width,
+          y: (-tmpVec3A.y + 1) * 0.5 * viewport.height,
         });
       }
     });

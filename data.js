@@ -18,7 +18,7 @@ const SITE_DATA = {
 	identity: {
 		name: "Lukas Joy",
 		tagline: "Designer | Game Developer",
-		systemName: "LJSYS v2.0",
+		systemName: "ASTRAOS v3.1",
 	},
 
 	debug: {
@@ -224,9 +224,70 @@ const SITE_DATA = {
 		}
 	],
 
+	startupSequence: {
+		splash: {
+			title: "ASTRAOS STARTUP",
+			subtitle: "Astra Dynamics Personal Workstation",
+			loadingText: "Starting desktop services",
+			introMs: 900,
+			holdMs: 2000,
+			asciiArt: [
+				"",
+				"",
+				"                     █████                           ███████     █████████   ",
+				"                    ░░███                          ███░░░░░███  ███░░░░░███  ",
+				"   ██████    █████  ███████   ████████   ██████   ███     ░░███░███    ░░░   ",
+				"  ░░░░░███  ███░░  ░░░███░   ░░███░░███ ░░░░░███ ░███      ░███░░█████████   ",
+				"   ███████ ░░█████   ░███     ░███ ░░░   ███████ ░███      ░███ ░░░░░░░░███  ",
+				"  ███░░███  ░░░░███  ░███ ███ ░███      ███░░███ ░░███     ███  ███    ░███  ",
+				" ░░████████ ██████   ░░█████  █████    ░░████████ ░░░███████░  ░░█████████   ",
+				"  ░░░░░░░░ ░░░░░░     ░░░░░  ░░░░░      ░░░░░░░░    ░░░░░░░     ░░░░░░░░░    ",
+				"",
+				"",
+			],
+			svgMarkup:
+				'<svg viewBox="0 0 540 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ASTRAOS startup logo"><rect x="2" y="2" width="536" height="116" fill="none" stroke="#f0c677" stroke-width="4"/><text x="50%" y="56" text-anchor="middle" font-size="36" font-family="\'VT323\', monospace" fill="#f0c677" letter-spacing="4">ASTRAOS</text><text x="50%" y="86" text-anchor="middle" font-size="14" font-family="\'Share Tech Mono\', monospace" fill="#f0c677" opacity="0.85" letter-spacing="2">ASTRA DYNAMICS</text></svg>',
+		},
+		bootLines: [
+			{ text: "ASTRAOS DESKTOP ENVIRONMENT", style: "header" },
+			{ text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style: "sep" },
+			{ text: "", style: "gap" },
+			{ text: "CPU  : VOID-486 DX4/100MHz  ·  FPU : Installed", style: "normal" },
+			{ text: "CACHE: L1 8KB  L2 256KB     ·  BUS : VOID-ISA 33MHz", style: "normal" },
+			{ text: "", style: "gap" },
+			{ text: "  kernel.sys  ......................................  LOADED", style: "ok" },
+			{ text: "  psx_renderer.drv  ...............................  LOADED", style: "ok" },
+			{ text: "  desktop.exe  .....................................  LOADED", style: "ok" },
+			{ text: "  project.exe  .....................................  READY", style: "ok" },
+			{ text: "", style: "gap" },
+			{ text: "All systems nominal. Starting desktop...", style: "dim" },
+			{ text: "", style: "gap" },
+			{ text: "C:\\ASTRAOS> _", style: "cursor" },
+		],
+		resumeLines: [
+			{ text: "ASTRAOS POWER RESTORE v3.10", style: "header" },
+			{ text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style: "sep" },
+			{ text: "", style: "gap" },
+			{ text: "CRT beam warm-up ....................... OK", style: "ok" },
+			{ text: "PSX-VRAM handshake ..................... OK", style: "ok" },
+			{ text: "VOID-486 resume ........................ OK", style: "ok" },
+			{ text: "Desktop shell wakeup ................... OK", style: "ok" },
+			{ text: "", style: "gap" },
+			{ text: "C:\\ASTRAOS> _", style: "cursor" },
+		],
+	},
+
+	shutdownSequence: {
+		title: "ASTRAOS",
+		status: "Shutting down",
+		subStatus: "Saving your session in the void",
+		footer: "It is now safe to power off this workstation.",
+		holdMs: 1700,
+	},
+
 	bootLines: [
-		{ text: "LUKAS JOY SYSTEMS  —  LJBIOS v2.04", style: "header" },
-		{ text: "Copyright (C) 1994-2026 Lukas Joy Systems, Inc.", style: "dim" },
+		{ text: "ASTRA DYNAMICS  —  ASTBIOS v3.10", style: "header" },
+		{ text: "Copyright (C) 1998-2026 Astra Dynamics, Inc.", style: "dim" },
 		{ text: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style: "sep" },
 		{ text: "", style: "gap" },
 		{ text: "CPU  : VOID-486 DX4/100MHz  ·  FPU : Installed", style: "normal" },
@@ -245,7 +306,7 @@ const SITE_DATA = {
 		{ text: "  3D Renderer   : Three.js r128 WebGL  ..............  OK", style: "ok" },
 		{ text: "  CRT Filter    : Scanline mode 50Hz  ................  ACTIVE", style: "ok" },
 		{ text: "", style: "gap" },
-		{ text: "LOADING LJSYS DESKTOP ENVIRONMENT", style: "normal" },
+		{ text: "LOADING ASTRAOS DESKTOP ENVIRONMENT", style: "normal" },
 		{ text: "  kernel.sys  ......................................  LOADED", style: "ok" },
 		{ text: "  psx_renderer.drv  ...............................  LOADED", style: "ok" },
 		{ text: "  desktop.exe  .....................................  LOADED", style: "ok" },
@@ -253,7 +314,7 @@ const SITE_DATA = {
 		{ text: "", style: "gap" },
 		{ text: "All systems nominal. Starting desktop...", style: "dim" },
 		{ text: "", style: "gap" },
-		{ text: "C:\\LJSYS> _", style: "cursor" },
+		{ text: "C:\\ASTRAOS> _", style: "cursor" },
 	],
 
 };

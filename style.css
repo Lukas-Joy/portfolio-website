@@ -241,6 +241,295 @@ body {
 .boot-line.cursor::after { content: '█'; animation: bl .7s steps(1) infinite; }
 @keyframes bl { 0%,49%{opacity:1} 50%,100%{opacity:0} }
 
+#boot-screen.boot-screen-splashing {
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+
+.startup-splash {
+  width: min(92%, 640px);
+  border: 2px solid var(--ph);
+  background: linear-gradient(180deg, rgba(8, 8, 8, 0.98) 0%, rgba(0, 0, 0, 0.98) 100%);
+  box-shadow: 0 0 0 1px rgba(240, 198, 119, 0.35), 0 0 22px rgba(240, 198, 119, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  animation: startup-panel-in 0.33s steps(5);
+}
+
+.startup-splash.is-exiting {
+  animation: startup-panel-out 0.30s steps(5) forwards;
+}
+
+.startup-art {
+  width: 100%;
+  border: 1px solid rgba(240, 198, 119, 0.6);
+  background: rgba(240, 198, 119, 0.04);
+  min-height: 90px;
+  max-height: min(58vh, 320px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.startup-art-svg {
+  width: 100%;
+  max-width: 520px;
+}
+
+.startup-art-svg svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.startup-art-img {
+  width: 100%;
+  max-width: 520px;
+  max-height: 140px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.startup-art-ascii {
+  margin: 0;
+  color: var(--ph);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: clamp(5px, 0.58vw, 8px);
+  line-height: 1.2;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  white-space: pre;
+  text-shadow: 0 0 8px rgba(240, 198, 119, 0.35);
+}
+
+@media (max-width: 1200px), (max-height: 760px) {
+  .startup-splash {
+    width: min(96%, 900px);
+    padding: 10px 12px;
+    gap: 6px;
+  }
+
+  .startup-art {
+    min-height: 64px;
+    max-height: min(52vh, 260px);
+    padding: 6px;
+  }
+
+  .startup-title {
+    font-size: 7px;
+    letter-spacing: 1.4px;
+  }
+
+  .startup-subtitle,
+  .startup-loading {
+    font-size: 9px;
+  }
+
+  .boot-line {
+    font-size: 9px;
+    line-height: 1.45;
+    min-height: 1.45em;
+  }
+}
+
+@media (max-width: 760px), (max-height: 620px) {
+  #boot-screen {
+    padding: 8px 9px;
+  }
+
+  .startup-splash {
+    width: 98%;
+  }
+
+  .startup-art-ascii {
+    font-size: clamp(4px, 0.95vw, 6px);
+  }
+
+  .boot-line {
+    font-size: 8px;
+    line-height: 1.35;
+    min-height: 1.35em;
+  }
+}
+
+.startup-art-ascii.astraos-reveal {
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  animation:
+    astraos-reveal-in 0.9s steps(36, end) forwards,
+    astraos-glow-in 0.9s steps(8, end) forwards;
+}
+
+.startup-title {
+  font-family: var(--pixel);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--ph);
+  text-transform: uppercase;
+}
+
+.startup-subtitle {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(240, 198, 119, 0.9);
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.startup-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ph);
+}
+
+.startup-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.startup-loading-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ph);
+  opacity: 0.2;
+  animation: startup-dot 0.9s steps(4) infinite;
+}
+
+.startup-loading-dots span:nth-child(2) { animation-delay: 0.18s; }
+.startup-loading-dots span:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes startup-panel-in {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes startup-panel-out {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.94); }
+}
+
+@keyframes startup-dot {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+
+@keyframes astraos-reveal-in {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes astraos-glow-in {
+  0% { text-shadow: 0 0 0 rgba(240, 198, 119, 0); }
+  40% { text-shadow: 0 0 12px rgba(240, 198, 119, 0.6); }
+  100% { text-shadow: 0 0 8px rgba(240, 198, 119, 0.35); }
+}
+
+#boot-screen.shutdown-active {
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(6, 6, 6, 0.99) 0%, rgba(0, 0, 0, 0.99) 100%);
+}
+
+.shutdown-panel {
+  width: min(90%, 540px);
+  border: 2px solid var(--ph);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.95) 0%, rgba(5, 5, 5, 0.96) 100%);
+  box-shadow: 0 0 0 1px rgba(240, 198, 119, 0.25), 0 0 26px rgba(240, 198, 119, 0.14);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  color: var(--ph);
+  text-align: center;
+  animation: shutdown-panel-in 0.3s steps(4);
+}
+
+.shutdown-panel.is-exiting {
+  animation: shutdown-panel-out 0.36s steps(4) forwards;
+}
+
+.shutdown-logo {
+  font-family: var(--pixel);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.shutdown-status {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.shutdown-sub,
+.shutdown-footer {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.92;
+}
+
+.shutdown-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.shutdown-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ph);
+  opacity: 0.2;
+  animation: shutdown-dot 0.95s steps(4) infinite;
+}
+
+.shutdown-dots span:nth-child(2) { animation-delay: 0.16s; }
+.shutdown-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+#boot-screen.shutdown-fading {
+  transition: opacity 0.52s ease;
+  opacity: 0;
+}
+
+@keyframes shutdown-panel-in {
+  0% { opacity: 0; transform: scale(0.985); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shutdown-panel-out {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.92); }
+}
+
+@keyframes shutdown-dot {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 1; }
+}
+
 /* ── DESKTOP ──────────────────────────────────────────────── */
 #desktop { position: absolute; inset: 0; bottom: var(--tbh); overflow: hidden; display: none; }
 

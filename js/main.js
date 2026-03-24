@@ -85,27 +85,101 @@
     container.innerHTML = '';
     container.style.display = 'flex';
 
-    var lines = SITE_DATA.bootLines;
+    var startupCfg = (SITE_DATA && SITE_DATA.startupSequence) ? SITE_DATA.startupSequence : {};
+    var splashCfg = startupCfg.splash || {};
+    var bootLines = startupCfg.bootLines || SITE_DATA.bootLines || [];
+
+    container.style.opacity = '1';
+    container.style.transition = '';
+
+    runStartupSplash(container, splashCfg, function () {
+      runBootLines(container, bootLines, function () {
+        setTimeout(function () {
+          container.style.transition = 'opacity 0.4s steps(4)';
+          container.style.opacity = '0';
+          setTimeout(function () {
+            container.classList.remove('boot-screen-splashing');
+            container.style.display = 'none';
+            container.style.opacity = '';
+            container.style.transition = '';
+            onDone();
+          }, 420);
+        }, 130);
+      });
+    });
+  }
+
+  function runStartupSplash(container, splashCfg, onDone) {
+    container.innerHTML = '';
+    container.classList.add('boot-screen-splashing');
+
+    var shell = document.createElement('div');
+    shell.className = 'startup-splash';
+
+    var artWrap = document.createElement('div');
+    artWrap.className = 'startup-art';
+
+    var hasArt = false;
+    if (splashCfg && splashCfg.asciiArt && splashCfg.asciiArt.length) {
+      var ascii = document.createElement('pre');
+      ascii.className = 'startup-art-ascii';
+      ascii.textContent = splashCfg.asciiArt.join('\n');
+      ascii.classList.add('astraos-reveal');
+      artWrap.appendChild(ascii);
+      hasArt = true;
+    }
+
+    if (!hasArt) {
+      var fallback = document.createElement('pre');
+      fallback.className = 'startup-art-ascii';
+      fallback.textContent = '[ ASTRAOS ]';
+      fallback.classList.add('astraos-reveal');
+      artWrap.appendChild(fallback);
+    }
+
+    var title = document.createElement('div');
+    title.className = 'startup-title';
+    title.textContent = (splashCfg && splashCfg.title) ? splashCfg.title : 'ASTRAOS STARTUP';
+
+    var subtitle = document.createElement('div');
+    subtitle.className = 'startup-subtitle';
+    subtitle.textContent = (splashCfg && splashCfg.subtitle) ? splashCfg.subtitle : 'Lukas Joy Workstation';
+
+    var loading = document.createElement('div');
+    loading.className = 'startup-loading';
+    loading.innerHTML = ((splashCfg && splashCfg.loadingText) ? splashCfg.loadingText : 'Starting desktop services') + '<span class="startup-loading-dots"><span></span><span></span><span></span></span>';
+
+    shell.appendChild(artWrap);
+    shell.appendChild(title);
+    shell.appendChild(subtitle);
+    shell.appendChild(loading);
+    container.appendChild(shell);
+
+    var holdMs = Math.max(1800, (splashCfg && Number(splashCfg.holdMs)) ? Number(splashCfg.holdMs) : 0);
+    var introMs = Math.max(0, (splashCfg && Number(splashCfg.introMs)) ? Number(splashCfg.introMs) : 900);
+    var outMs = 300;
+    setTimeout(function () {
+      shell.classList.add('is-exiting');
+      setTimeout(function () {
+        container.classList.remove('boot-screen-splashing');
+        onDone();
+      }, outMs);
+    }, introMs + (holdMs || 1800));
+  }
+
+  function runBootLines(container, lines, onDone) {
+    container.innerHTML = '';
     var i = 0;
 
     function next() {
       if (i >= lines.length) {
-        setTimeout(function () {
-          container.style.transition = 'opacity 0.4s steps(4)';
-          container.style.opacity    = '0';
-          setTimeout(function () {
-            container.style.display = 'none';
-            container.style.opacity = '';
-            onDone();
-          }, 420);
-        }, 150);
+        onDone();
         return;
       }
 
-      var line  = lines[i++];
+      var line = lines[i++] || { text: '', style: 'normal' };
       var delay = 25 + Math.random() * 15;
 
-      // Gap lines
       if (line.style === 'gap') {
         var gap = document.createElement('div');
         gap.className = 'boot-line';
@@ -115,7 +189,6 @@
         return;
       }
 
-      // Sep lines (no delay)
       if (line.style === 'sep') {
         var sep = document.createElement('div');
         sep.className = 'boot-line dim';
@@ -125,7 +198,6 @@
         return;
       }
 
-      // Header lines
       if (line.style === 'header') {
         var hdr = document.createElement('div');
         hdr.className = 'boot-line header';
@@ -135,7 +207,6 @@
         return;
       }
 
-      // Cursor / last line
       if (line.style === 'cursor') {
         var cur = document.createElement('div');
         cur.className = 'boot-line cursor ok';
@@ -146,15 +217,13 @@
         return;
       }
 
-      // Normal / ok / dim / warn lines
-      // Lines ending with OK or similar get a small animated "..." then the status
       if (line.style === 'ok' && line.text.indexOf('..') !== -1) {
-        var el = document.createElement('div');
-        el.className = 'boot-line';
-        container.appendChild(el);
+        var okEl = document.createElement('div');
+        okEl.className = 'boot-line';
+        container.appendChild(okEl);
         container.scrollTop = container.scrollHeight;
-        typeOkLine(el, line.text, function () {
-          el.classList.add('ok');
+        typeOkLine(okEl, line.text, function () {
+          okEl.classList.add('ok');
           setTimeout(next, delay * 0.3);
         });
         return;
@@ -162,8 +231,8 @@
 
       var el = document.createElement('div');
       el.className = 'boot-line' +
-        (line.style === 'ok'   ? ' ok'   : '') +
-        (line.style === 'dim'  ? ' dim'  : '') +
+        (line.style === 'ok' ? ' ok' : '') +
+        (line.style === 'dim' ? ' dim' : '') +
         (line.style === 'warn' ? ' warn' : '');
       el.textContent = line.text;
       container.appendChild(el);
